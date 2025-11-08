@@ -40,7 +40,11 @@ const StudentForm: React.FC<StudentFormProps> = ({ onSubmit, onCancel, editingSt
     
     try {
       await onSubmit(formData);
-      // Form will be reset by useEffect when editingStudent changes to null
+      // Clear form after successful submission of new student
+      if (!editingStudent) {
+        setFormData({ name: '', cpf: '', email: '' });
+      }
+      // For editing, form will be reset by useEffect when editingStudent changes to null
     } finally {
       setIsSubmitting(false);
     }

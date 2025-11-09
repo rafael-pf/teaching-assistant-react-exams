@@ -19,6 +19,11 @@
       "name": "José Legibilidade",
       "cpf": "44444444444",
       "email": "jl@cin.ufpe.br"
+    },
+    {
+      "name": "Joana Estilo",
+      "cpf": "66666666666",
+      "email": "je@cin.ufpe.br"
     }
   ]
 }

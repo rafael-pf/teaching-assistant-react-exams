@@ -18,7 +18,7 @@ app.use(express.json());
 // In-memory storage with file persistence
 const studentSet = new StudentSet();
 const classes = new Classes();
-const dataFile = path.resolve('./data/students.json');
+const dataFile = path.resolve('./data/app-data.json');
 
 // Persistence functions
 const ensureDataDirectory = (): void => {
@@ -28,13 +28,22 @@ const ensureDataDirectory = (): void => {
   }
 };
 
-const saveStudentsToFile = (): void => {
+const saveDataToFile = (): void => {
   try {
     const data = {
       students: studentSet.getAllStudents().map(student => ({
         name: student.name,
         cpf: student.getCPF(),
         email: student.email
+      })),
+      classes: classes.getAllClasses().map(classObj => ({
+        topic: classObj.getTopic(),
+        semester: classObj.getSemester(),
+        year: classObj.getYear(),
+        enrollments: classObj.getEnrollments().map(enrollment => ({
+          studentCPF: enrollment.getStudent().getCPF(),
+          evaluations: enrollment.getEvaluations().map(evaluation => evaluation.toJSON())
+        }))
       }))
     };
     
@@ -45,13 +54,14 @@ const saveStudentsToFile = (): void => {
   }
 };
 
-// Load students from file
-const loadStudentsFromFile = (): void => {
+// Load data from file
+const loadDataFromFile = (): void => {
   try {
     if (fs.existsSync(dataFile)) {
       const fileContent = fs.readFileSync(dataFile, 'utf-8');
       const data = JSON.parse(fileContent);
       
+      // Load students
       if (data.students && Array.isArray(data.students)) {
         data.students.forEach((studentData: any) => {
           // Create student with basic info only - evaluations handled through enrollments
@@ -68,21 +78,53 @@ const loadStudentsFromFile = (): void => {
           }
         });
       }
+
+      // Load classes with enrollments
+      if (data.classes && Array.isArray(data.classes)) {
+        data.classes.forEach((classData: any) => {
+          try {
+            const classObj = new Class(classData.topic, classData.semester, classData.year);
+            classes.addClass(classObj);
+
+            // Load enrollments for this class
+            if (classData.enrollments && Array.isArray(classData.enrollments)) {
+              classData.enrollments.forEach((enrollmentData: any) => {
+                const student = studentSet.findStudentByCPF(enrollmentData.studentCPF);
+                if (student) {
+                  const enrollment = classObj.addEnrollment(student);
+                  
+                  // Load evaluations for this enrollment
+                  if (enrollmentData.evaluations && Array.isArray(enrollmentData.evaluations)) {
+                    enrollmentData.evaluations.forEach((evalData: any) => {
+                      const evaluation = Evaluation.fromJSON(evalData);
+                      enrollment.addOrUpdateEvaluation(evaluation.getGoal(), evaluation.getGrade());
+                    });
+                  }
+                } else {
+                  console.error(`Student with CPF ${enrollmentData.studentCPF} not found for enrollment`);
+                }
+              });
+            }
+          } catch (error) {
+            console.error(`Error adding class ${classData.topic}:`, error);
+          }
+        });
+      }
     }
   } catch (error) {
-    console.error('Error loading students from file:', error);
+    console.error('Error loading data from file:', error);
   }
 };
 
 // Trigger save after any modification (async to not block operations)
 const triggerSave = (): void => {
   setImmediate(() => {
-    saveStudentsToFile();
+    saveDataToFile();
   });
 };
 
 // Load existing data on startup
-loadStudentsFromFile();
+loadDataFromFile();
 
 // Helper function to clean CPF
 const cleanCPF = (cpf: string): string => {
@@ -234,6 +276,7 @@ app.post('/api/classes', (req: Request, res: Response) => {
 
     const classObj = new Class(topic, semester, year);
     const newClass = classes.addClass(classObj);
+    triggerSave(); // Save to file after adding class
     res.status(201).json(newClass.toJSON());
   } catch (error) {
     res.status(400).json({ error: (error as Error).message });
@@ -260,6 +303,7 @@ app.put('/api/classes/:id', (req: Request, res: Response) => {
     existingClass.setSemester(semester);
     existingClass.setYear(year);
     
+    triggerSave(); // Save to file after updating class
     res.json(existingClass.toJSON());
   } catch (error) {
     res.status(400).json({ error: (error as Error).message });
@@ -276,7 +320,77 @@ app.delete('/api/classes/:id', (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Class not found' });
     }
     
+    triggerSave(); // Save to file after deleting class
     res.status(204).send();
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
+});
+
+// POST /api/classes/:classId/enroll - Enroll a student in a class
+app.post('/api/classes/:classId/enroll', (req: Request, res: Response) => {
+  try {
+    const { classId } = req.params;
+    const { studentCPF } = req.body;
+    
+    if (!studentCPF) {
+      return res.status(400).json({ error: 'Student CPF is required' });
+    }
+
+    const classObj = classes.findClassById(classId);
+    if (!classObj) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    const student = studentSet.findStudentByCPF(cleanCPF(studentCPF));
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const enrollment = classObj.addEnrollment(student);
+    triggerSave(); // Save to file after enrolling student
+    res.status(201).json(enrollment.toJSON());
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
+});
+
+// DELETE /api/classes/:classId/enroll/:studentCPF - Remove student enrollment from a class
+app.delete('/api/classes/:classId/enroll/:studentCPF', (req: Request, res: Response) => {
+  try {
+    const { classId, studentCPF } = req.params;
+    
+    const classObj = classes.findClassById(classId);
+    if (!classObj) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    const cleanedCPF = cleanCPF(studentCPF);
+    const success = classObj.removeEnrollment(cleanedCPF);
+    
+    if (!success) {
+      return res.status(404).json({ error: 'Student not enrolled in this class' });
+    }
+    
+    triggerSave(); // Save to file after unenrolling student
+    res.status(204).send();
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
+});
+
+// GET /api/classes/:classId/enrollments - Get all enrollments for a class
+app.get('/api/classes/:classId/enrollments', (req: Request, res: Response) => {
+  try {
+    const { classId } = req.params;
+    
+    const classObj = classes.findClassById(classId);
+    if (!classObj) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+
+    const enrollments = classObj.getEnrollments();
+    res.json(enrollments.map(e => e.toJSON()));
   } catch (error) {
     res.status(400).json({ error: (error as Error).message });
   }

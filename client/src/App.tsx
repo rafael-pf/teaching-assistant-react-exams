@@ -53,10 +53,12 @@ const App: React.FC = () => {
 
   const handleStudentAdded = () => {
     loadStudents(); // Reload the list when a new student is added
+    loadClasses(); // Also reload classes to update enrollment info
   };
 
   const handleStudentDeleted = () => {
     loadStudents(); // Reload the list when a student is deleted
+    loadClasses(); // Also reload classes to update enrollment info
   };
 
   const handleStudentUpdated = () => {
@@ -164,6 +166,7 @@ const App: React.FC = () => {
                 onError={handleError}
                 onCancel={editingStudent ? handleCancelEdit : undefined}
                 editingStudent={editingStudent}
+                selectedClass={selectedClass}
               />
 
               <StudentList

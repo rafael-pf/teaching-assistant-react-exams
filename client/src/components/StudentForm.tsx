@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Student } from '../types/Student';
+import { Class } from '../types/Class';
 import { studentService } from '../services/StudentService';
+import EnrollmentService from '../services/EnrollmentService';
 
 interface StudentFormProps {
   onStudentAdded: () => void;      // Callback when student is successfully added
@@ -8,6 +10,7 @@ interface StudentFormProps {
   onCancel?: () => void;
   editingStudent?: Student | null;
   onError: (error: string) => void; // Callback for error handling
+  selectedClass?: Class | null;     // Currently selected class for auto-enrollment
 }
 
 const StudentForm: React.FC<StudentFormProps> = ({ 
@@ -15,7 +18,8 @@ const StudentForm: React.FC<StudentFormProps> = ({
   onStudentUpdated, 
   onCancel, 
   editingStudent,
-  onError 
+  onError,
+  selectedClass
 }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -57,7 +61,22 @@ const StudentForm: React.FC<StudentFormProps> = ({
         onStudentUpdated();
       } else {
         // Add new student
-        await studentService.createStudent(formData);
+        const newStudent = await studentService.createStudent(formData);
+        
+        // Auto-enroll in selected class if one is selected
+        if (selectedClass) {
+          try {
+            await EnrollmentService.enrollStudent(selectedClass.id, newStudent.cpf);
+            console.log(`Student ${newStudent.name} enrolled in ${selectedClass.topic}`);
+          } catch (enrollmentError) {
+            // Student was created but enrollment failed - show warning
+            onError(`Student created successfully, but enrollment failed: ${(enrollmentError as Error).message}`);
+            setFormData({ name: '', cpf: '', email: '' }); // Clear form anyway
+            onStudentAdded(); // Still refresh the list
+            return; // Exit early to avoid showing success message
+          }
+        }
+        
         setFormData({ name: '', cpf: '', email: '' }); // Clear form
         onStudentAdded();
       }
@@ -109,6 +128,23 @@ const StudentForm: React.FC<StudentFormProps> = ({
           'Add New Student'
         )}
       </h2>
+      
+      {/* Class enrollment indicator */}
+      {!editingStudent && selectedClass && (
+        <div style={{ 
+          padding: '10px', 
+          backgroundColor: '#e8f5e8', 
+          border: '1px solid #4caf50', 
+          borderRadius: '4px',
+          marginBottom: '15px',
+          fontSize: '0.9em'
+        }}>
+          <strong>Auto-enrollment:</strong> New student will be automatically enrolled in{' '}
+          <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>
+            {selectedClass.topic} ({selectedClass.year}/{selectedClass.semester})
+          </span>
+        </div>
+      )}
       
       <div className="form-group">
         <label htmlFor="name">Name:</label>

@@ -1,4 +1,4 @@
-// server/src/models/Exams.ts
+
 import { IQuestion } from './Questions';
 import Question from './Questions';
 

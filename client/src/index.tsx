@@ -1,6 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
+import ExamplePage from './pages/ExamplePage/ExamplePage';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -8,6 +10,16 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <Routes>
+        {/* Rota padrão - mantém o App com sistema de tabs */}
+        <Route path="/" element={<App />} />
+
+        {/* Novas páginas com roteamento */}
+        <Route path="/example" element={<ExamplePage />} />
+
+        {/* Adicione mais rotas aqui conforme necessário */}
+      </Routes>
+    </BrowserRouter>
   </React.StrictMode>
 );

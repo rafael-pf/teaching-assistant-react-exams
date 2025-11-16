@@ -1,7 +1,5 @@
 import React from 'react';
 import { Student } from '../types/Student';
-import { studentService } from '../services/StudentService';
-import '../services/ExamsService'
 
 interface StudentListProps {
   students: Student[];

@@ -1,5 +1,5 @@
 import React from "react";
-import ExamsService from "../../services/ExamsService";
+import CorrectionService from "../../services/CorrectionService";
 import { Student } from "../../types/Student";
 import ExamList from "../../components/ExamList";
 import Dropdown from "../../components/DropDown";
@@ -17,7 +17,7 @@ const Exam: React.FC = () => {
 
     const fetchStudents = async () => {
         try {
-            const response = await ExamsService.correctExam("examId123", { answer1: "A", answer2: "B" });
+            const response = await CorrectionService.correctExam("examId123", { answer1: "A", answer2: "B" });
             console.log("Exam corrected:", response);
             // Here you would typically update the students state with the fetched data
         } catch (error) {

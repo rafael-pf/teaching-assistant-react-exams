@@ -1,4 +1,4 @@
-class ExamsService {
+class CorrectionService {
     private apiUrl: string;
 
     constructor() {
@@ -22,4 +22,4 @@ class ExamsService {
     }
 }
 
-export default new ExamsService();
+export default new CorrectionService();

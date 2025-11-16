@@ -12,5 +12,12 @@ export const DEFAULT_DEFMEDIA: DefMedia = {
         ['MPA', 7],
         ['MANA', 4],
     ]),
-    metaPeso: new Map<Meta, number>(),
+    metaPeso: new Map<Meta, number>([
+        ['Requirements', 1],
+        ['Configuration Management', 1], 
+        ['Project Management', 1],
+        ['Design', 1],
+        ['Tests', 1],
+        ['Refactoring', 1]
+    ]),
 };

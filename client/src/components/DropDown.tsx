@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 
-const DropdownExams: React.FC<{
+const Dropdown: React.FC<{
   subjects: string[];
+  initialText: string;
   onSelect: (subject: string) => void;
-}> = ({ subjects, onSelect }) => {
+}> = ({ subjects, initialText, onSelect }) => {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string>("Selecione uma matéria");
+  const [selected, setSelected] = useState<string>(initialText);
 
   const handleSelect = (subject: string) => {
     setSelected(subject);
@@ -70,4 +71,4 @@ const DropdownExams: React.FC<{
   );
 };
 
-export default DropdownExams;
+export default Dropdown;

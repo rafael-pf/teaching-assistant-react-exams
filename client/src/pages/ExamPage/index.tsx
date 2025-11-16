@@ -1,17 +1,22 @@
-import React from "react";
+import React, { useState } from "react";
 import Header from "../../components/Header";
 import CustomButton from "../../components/CustomButton";
 import CollapsibleTable, {
   Column,
   DetailColumn,
 } from "../../components/CollapsibleTable";
+import Dropdown from "../../components/DropDown";
+
+import "./ExamPage.css"; 
+import ExamCreatePopup from "./ExamPagePopup";
+
 
 const columns: Column[] = [
   { id: "studentName", label: "Aluno", align: "left" },
   { id: "examID", label: "ID Prova", align: "right" },
-  { id: "timestamp", label: "Data de geração", align: "right" },
   { id: "qtdAberta", label: "Quantidade Aberta", align: "right" },
   { id: "qtdFechada", label: "Quantidade Fechada", align: "right" },
+  { id: "ativo", label: "Ativo", align: "right" },
 ];
 
 const detailColumns: DetailColumn[] = [
@@ -24,7 +29,7 @@ const rows = [
   {
     studentName: "Maria Silva",
     examID: 10221,
-    timestamp: "2025-02-05 14:32",
+    ativo: "Sim",
     qtdAberta: 3,
     qtdFechada: 7,
     details: [
@@ -48,7 +53,7 @@ const rows = [
   {
     studentName: "João Pereira",
     examID: 10222,
-    timestamp: "2025-02-05 15:10",
+    ativo: "Sim",
     qtdAberta: 2,
     qtdFechada: 8,
     details: [
@@ -67,7 +72,7 @@ const rows = [
   {
     studentName: "Ana Costa",
     examID: 10223,
-    timestamp: "2025-02-05 16:20",
+    ativo: "Sim",
     qtdAberta: 4,
     qtdFechada: 6,
     details: [
@@ -92,23 +97,59 @@ const rows = [
 
 
 export default function ExamPage() {
-  return (
-    <>
-      <div className="App">
-        <Header />
-        <CustomButton label="Click me" />
+  const [popupOpen, setPopupOpen] = useState(false);
 
-        <CollapsibleTable
-          columns={columns}
-          detailColumns={detailColumns}
-          rows={rows}
-          detailTitle="Questões"
-          computeDetailRow={(detail, parent) => ({
-            ...detail,
-            total: detail.tipoQuestao === "Aberta" ? 2 : 1, // exemplo arbitrário
-          })}
+  const subjects = [
+    "Requirements",
+    "Configuration Management",
+    "Project Management",
+    "Design",
+  ];
+
+  return (
+    <div className="exam-page">
+      <Header />
+
+      {/* Linha com botão e dropdown */}
+      <div
+        className="top-controls"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Dropdown
+          subjects={subjects}
+          onSelect={(s) => alert(s)}
+          initialText={"Selecione uma prova:"}
         />
+
+        {/* BOTÃO QUE ABRE O POPUP */}
+        <CustomButton label="Criar Prova" onClick={() => setPopupOpen(true)} />
       </div>
-    </>
+
+      {/* TABELA */}
+      <CollapsibleTable
+        columns={columns}
+        detailColumns={detailColumns}
+        rows={rows}
+        detailTitle="Questões"
+        computeDetailRow={(detail, parent) => ({
+          ...detail,
+          total: detail.tipoQuestao === "Aberta" ? 2 : 1,
+        })}
+      />
+
+      {/* POPUP DE CRIAÇÃO DA PROVA */}
+      <ExamCreatePopup
+        isOpen={popupOpen}
+        onClose={() => setPopupOpen(false)}
+        onSubmit={(data) => {
+          console.log("Prova criada:", data);
+          setPopupOpen(false);
+        }}
+      />
+    </div>
   );
 }

@@ -1,0 +1,10 @@
+.exam-page {
+    padding: 20px;
+}
+
+.top-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 20px 0;
+}

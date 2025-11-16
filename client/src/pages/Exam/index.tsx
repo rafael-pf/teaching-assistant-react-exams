@@ -4,6 +4,7 @@ import { Student } from "../../types/Student";
 import ExamList from "../../components/ExamList";
 import Dropdown from "../../components/DropDown";
 import Header from "../../components/Header";
+import CustomButton from "../../components/CustomButton";
 
 const Exam: React.FC = () => {
     const [students, setStudents] = React.useState<Student[]>([]);
@@ -29,7 +30,7 @@ const Exam: React.FC = () => {
             <Header/>
             <tr>
                 <td><Dropdown subjects={["Teste1","Teste2"]} initialText="Selecione uma matéria" onSelect={(materia) => console.log("Selecionou:", materia)}/></td>
-                <td><button onClick={() => console.log("Filtrar clicado")}>Corrigir</button></td>
+                <td><CustomButton label="Corrigir" onClick={() => {}}/></td>
             </tr>
             <ExamList students={[testStudent]} onCorrection={(student, examId) => console.log("Correcting", student, "for exam", examId)} loading={false} />
         </div>

@@ -1,9 +1,9 @@
 import React from "react";
-import StudentList from "../../components/StudentList";
 import ExamsService from "../../services/ExamsService";
 import { Student } from "../../types/Student";
 import ExamList from "../../components/ExamList";
 import Dropdown from "../../components/DropDown";
+import Header from "../../components/Header";
 
 const Exam: React.FC = () => {
     const [students, setStudents] = React.useState<Student[]>([]);
@@ -26,6 +26,7 @@ const Exam: React.FC = () => {
 
     return (
         <div style={{display: 'flex', flexDirection: 'column', gap: '10px', padding: '20px'}}>
+            <Header/>
             <tr>
                 <td><Dropdown subjects={["Teste1","Teste2"]} initialText="Selecione uma matéria" onSelect={(materia) => console.log("Selecionou:", materia)}/></td>
                 <td><button onClick={() => console.log("Filtrar clicado")}>Corrigir</button></td>

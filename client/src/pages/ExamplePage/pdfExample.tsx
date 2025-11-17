@@ -5,6 +5,8 @@ import { GeneratePDFButton } from '../../components/GeneratePDFButton';
 const mockExamList = [
   { id: 'exam-id-123', title: 'Prova1_ESS (Mock de Sucesso)' },
   { id: 'non-existent-id-999', title: 'Prova Inexistente (Mock de Erro 404)' },
+  { id: 'exam-final-vazia', title: 'Prova Final Vazia (Mock de Erro 400)' },
+  { id: 'exam-id-456', title: 'Prova de Teste (Aluno) (Mock de Sucesso)' },
 ];
 
 const ExamPage: React.FC = () => {

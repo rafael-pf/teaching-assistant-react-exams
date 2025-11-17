@@ -14,6 +14,13 @@ const Dropdown: React.FC<DropdownProps> = ({
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string>(initialText);
 
+  // Sincroniza o estado quando initialText muda externamente (quando selectedClass é atualizado)
+  React.useEffect(() => {
+    if (initialText && initialText !== selected) {
+      setSelected(initialText);
+    }
+  }, [initialText]);
+
   const handleSelect = (subject: string) => {
     setSelected(subject);
     onSelect(subject);

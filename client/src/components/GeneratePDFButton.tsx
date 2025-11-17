@@ -38,13 +38,22 @@ export const GeneratePDFButton: React.FC<GeneratePDFButtonProps> = ({ open, onCl
       return;
     }
 
+    if (quantity < 1 || isNaN(quantity)) {
+      setErrorMessage("A quantidade deve ser 1 ou mais.");
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
       console.log(`Iniciando download de ${quantity} PDF(s) para o ID: ${examId}`);
       
-      await ExamsService.downloadExamPDF(examId); 
+      if (quantity == 1) {
+        await ExamsService.downloadExamPDF(examId);
+      } else {
+        await ExamsService.downloadExamZIP(examId, quantity);
+      }
       
       handleInternalClose();
 
@@ -78,7 +87,7 @@ export const GeneratePDFButton: React.FC<GeneratePDFButtonProps> = ({ open, onCl
         fullWidth
         variant="outlined"
         value={quantity}
-        onChange={(e) => setQuantity(Number(e.target.value))}
+        onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 0)}
         InputProps={{ inputProps: { min: 1 } }}
       />
       

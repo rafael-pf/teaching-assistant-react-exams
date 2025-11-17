@@ -1,19 +1,33 @@
 {
-    "studentsExams": [
+  "studentsExams": [
+    {
+      "id": 1,
+      "studentCPF": "11111111111",
+      "examId": 1,
+      "answers": [
         {
-            "id": 1,
-            "studentCPF": "11111111111",
-            "examId": 1,
-            "answers": [
-                {
-                    "questionId": 1,
-                    "answer": ""
-                },
-                {
-                    "questionId": 2,
-                    "answer": "Brasília"
-                }
-            ]
+          "questionId": 1,
+          "answer": "",
+          "score": 0
+        },
+        {
+          "questionId": 2,
+          "answer": "Brasília",
+          "score": 100
         }
-    ]
+      ]
+    },
+    {
+      "id": 2,
+      "studentCPF": "55555555555",
+      "examId": 1,
+      "answers": [
+        {
+          "questionId": 2,
+          "answer": "São Paulo",
+          "score": 0
+        }
+      ]
+    }
+  ]
 }

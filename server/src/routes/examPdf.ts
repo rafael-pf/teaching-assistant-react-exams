@@ -3,6 +3,9 @@ import PDFDocument from 'pdfkit';
 import archiver from 'archiver'
 import { Readable } from 'stream';
 
+const FONT_REGULAR = 'Times-Roman'; 
+const FONT_BOLD = 'Times-Bold';
+
 const router = Router();
 
 const mockExams = [
@@ -17,14 +20,27 @@ const findExamById = async (id: string) => {
 
 const generateExamPDF = (exam: any, copyNumber: number): InstanceType<typeof PDFDocument> => {
   const doc = new PDFDocument();
-  doc.fontSize(20).text(`${exam.title} - Cópia ${copyNumber}`, { align: 'center' });
-  doc.moveDown();
+
+  doc.font(FONT_REGULAR);
+
+  doc.fontSize(20).text(`${exam.title}`, { align: 'center' });
+  doc.moveDown(0.5);
 
   if (copyNumber > 0) {
       doc.fontSize(12).text(`Versão: ${copyNumber}`, { align: 'right' });
   }
 
-  doc.fontSize(12).text('Aluno: _________________________________________');
+  doc.fontSize(11).text('Paulo Borba', { align: 'center' });
+  doc.moveDown(0.3);
+
+
+  doc.fontSize(11).text('Centro de Informática', { align: 'center' });
+  doc.moveDown(0.3);
+
+  doc.fontSize(11).text('Universidade Federal de Pernambuco', { align: 'center' });
+  doc.moveDown(0.3);
+
+  doc.fontSize(11).text('___ de _________ de ______', { align: 'center' });
   doc.moveDown(2);
 
   exam.questions.forEach((q: string, index: number) => {

@@ -4,8 +4,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './styles/variables.css';
 import App from './App';
 import ExamplePage from './pages/ExamplePage';
-import Exam from './pages/Exam';
 import ExamPage from './pages/ExamPage';
+import Correction from './pages/Correction';
 import PdfExamplePage from './pages/PdfExamplePage';
 
 const root = ReactDOM.createRoot(
@@ -23,7 +23,7 @@ root.render(
         <Route path="/example" element={<ExamplePage />} />
 
         {/* Adicione mais rotas aqui conforme necessário */}
-        <Route path='/exam1' element={<Exam />} />
+        <Route path='/correction/:id' element={<Correction />} />
         <Route path="/exam/:id" element={<ExamPage />} />
         <Route path="/pdf-example" element={<PdfExamplePage />} />
       </Routes>

@@ -58,16 +58,13 @@ export class Correction {
       );
     if (!studentExam) throw new Error("Student exam not found");
 
-    // Todas as questões do exame (somente fechadas)
     const closedQuestions: Question[] = exam.questions
       .map((qid) => questionsData.questions.find((q: Question) => q.id === qid))
       .filter((q: Question) => q.type === "closed");
 
     const totalClosed = closedQuestions.length;
-
     let correctCount = 0;
 
-    // Corrigir cada questão fechada
     closedQuestions.forEach((question) => {
       const studentAnswer = studentExam.answers.find(
         (a) => a.questionId === question.id
@@ -77,7 +74,6 @@ export class Correction {
 
       const correctOption = question.options?.find((o) => o.isCorrect);
 
-      // Se acertou, marca grade 1, senão 0
       if (studentAnswer.answer.trim() === correctOption?.option.trim()) {
         studentAnswer.grade = 1;
         correctCount++;
@@ -86,10 +82,13 @@ export class Correction {
       }
     });
 
-    // Nota final de 0 a 10
+    // Calcula nota final (0-10)
     const finalGrade = totalClosed > 0 ? (correctCount / totalClosed) * 10 : 0;
 
-    // Salvar no arquivo
+    // 👉 grava nota final no StudentExam
+    (studentExam as any).grades = finalGrade;
+
+    // Salva alterações
     this.saveJson(this.studentsExamsPath, studentsExamsData);
 
     return {
@@ -99,5 +98,6 @@ export class Correction {
       totalClosed,
       finalGrade,
     };
-  }
+}
+
 }

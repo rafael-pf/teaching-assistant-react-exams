@@ -1,18 +1,17 @@
 class ExamsService {
-    private apiUrl: string;
+    private static apiUrl: string = "http://localhost:3005/api";
 
-    constructor() {
-        this.apiUrl = "http://localhost:3005/api";
-    }
-
-    public async correctExam(examId: string, answers: Record<string, any>): Promise<any> {
-        const response = await fetch(`${this.apiUrl}/correct/${examId}`, {
+    public static async correctExam(examId: string, answers: Record<string, any>): Promise<any> {
+        const response = await fetch(
+          `${ExamsService.apiUrl}/correct/${examId}`,
+          {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
+              "Content-Type": "application/json",
             },
             body: JSON.stringify(answers),
-        });
+          }
+        );
 
         if (!response.ok) {
             throw new Error("Failed to correct exam");
@@ -27,8 +26,8 @@ class ExamsService {
      * @param classId - The class ID
      * @returns Promise with generated exams data
      */
-    public async generateStudentExams(examId: number, classId: string): Promise<any> {
-        const response = await fetch(`${this.apiUrl}/exams/${examId}/generate?classId=${encodeURIComponent(classId)}`, {
+    public static async generateStudentExams(examId: number, classId: string): Promise<any> {
+        const response = await fetch(`${ExamsService.apiUrl}/exams/${examId}/generate?classId=${encodeURIComponent(classId)}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -49,9 +48,9 @@ class ExamsService {
      * @param classId - The class ID
      * @returns Promise with generated exams data
      */
-    public async createAndGenerateExams(examData: any, classId: string): Promise<any> {
+    public static async createAndGenerateExams(examData: any, classId: string): Promise<any> {
         // First, create the exam
-        const createResponse = await fetch(`${this.apiUrl}/exams`, {
+        const createResponse = await fetch(`${ExamsService.apiUrl}/exams`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -83,8 +82,8 @@ class ExamsService {
      * @param classId - The class ID
      * @returns Promise with array of exams
      */
-    public async getExamsForClass(classId: string): Promise<any> {
-        const response = await fetch(`${this.apiUrl}/exams/class/${encodeURIComponent(classId)}`, {
+    public static async getExamsForClass(classId: string): Promise<any> {
+        const response = await fetch(`${ExamsService.apiUrl}/exams/class/${encodeURIComponent(classId)}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
@@ -105,7 +104,7 @@ class ExamsService {
      * @param examId - Optional exam ID to filter by specific exam
      * @returns Promise with array of students with exam data
      */
-    public async getStudentsWithExamsForClass(classId: string, examId?: number): Promise<any> {
+    public static async getStudentsWithExamsForClass(classId: string, examId?: number): Promise<any> {
         let url = `http://localhost:3005/api/exams/students?classId=${encodeURIComponent(classId)}`;
         if (examId) {
             url += `&examId=${examId}`;
@@ -126,10 +125,10 @@ class ExamsService {
         return response.json();
     }
 
-    public async downloadExamPDF(examId: string): Promise<void> {
+    public static async downloadExamPDF(examId: string): Promise<void> {
         try {
 
-            const response = await fetch(`${this.apiUrl}/exams/${examId}/pdf`, {
+            const response = await fetch(`${ExamsService.apiUrl}/exams/${examId}/pdf`, {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/pdf',
@@ -172,10 +171,10 @@ class ExamsService {
         }
     }
 
-    public async downloadExamZIP(examId: string, quantity: number): Promise<void> {
+    public static async downloadExamZIP(examId: string, quantity: number): Promise<void> {
         try {
             
-            const response = await fetch(`${this.apiUrl}/exams/${examId}/zip?quantity=${quantity}`, {
+            const response = await fetch(`${ExamsService.apiUrl}/exams/${examId}/zip?quantity=${quantity}`, {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/zip',
@@ -219,4 +218,4 @@ class ExamsService {
     }
 }
 
-export default new ExamsService();
+export default ExamsService;

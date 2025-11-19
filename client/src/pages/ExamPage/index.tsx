@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import Header from "../../components/Header";
 import CustomButton from "../../components/CustomButton";
@@ -42,32 +42,32 @@ export default function ExamPage() {
   // -------------------------------
   // Carrega provas + tabela (todas)
   // -------------------------------
-  const loadAllData = async () => {
-    if (!classID) return;
+const loadAllData = useCallback(async () => {
+  if (!classID) return;
 
-    try {
-      setTableLoading(true);
+  try {
+    setTableLoading(true);
 
-      const [examsResponse, studentsResponse] = await Promise.all([
-        ExamsService.getExamsForClass(classID),
-        ExamsService.getStudentsWithExamsForClass(classID),
-      ]);
+    const [examsResponse, studentsResponse] = await Promise.all([
+      ExamsService.getExamsForClass(classID),
+      ExamsService.getStudentsWithExamsForClass(classID),
+    ]);
 
-      setExams(examsResponse.data || []);
-      setRows(studentsResponse.data || []);
-    } catch (error) {
-      console.error("Erro ao carregar dados:", error);
-      setExams([]);
-      setRows([]);
-    } finally {
-      setTableLoading(false);
-    }
-  };
+    setExams(examsResponse.data || []);
+    setRows(studentsResponse.data || []);
+  } catch (error) {
+    console.error("Erro ao carregar dados:", error);
+    setExams([]);
+    setRows([]);
+  } finally {
+    setTableLoading(false);
+  }
+}, [classID]);
 
   // carregar automaticamente ao montar
-  useEffect(() => {
-    loadAllData();
-  }, [classID]);
+ useEffect(() => {
+   loadAllData();
+ }, [loadAllData]);
 
   // ---------------------------------------------------
   // Função auxiliar: pega o ID da prova pela string título

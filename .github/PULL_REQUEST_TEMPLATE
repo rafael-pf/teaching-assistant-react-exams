@@ -38,6 +38,9 @@
 - [ ] 📝 Gerenciamento de Matrículas
 - [ ] 📈 Gerenciamento de Avaliações
 - [ ] 📄 Importação de dados
+- [ ] Provas
+- [ ] Flashcards
+- [ ] Colocar aqui o nome da sua feature
 
 ### Infraestrutura:
 - [ ] 🔧 Configurações (tsconfig, jest.config, cucumber.js)

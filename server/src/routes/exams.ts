@@ -6,6 +6,7 @@ import {
   triggerSaveExams,
   generateStudentExams,
   questions,
+  examsManager,
 } from "../services/dataService";
 
 const router = Router();
@@ -212,11 +213,7 @@ router.post("/", (req: Request, res: Response) => {
     } = req.body;
 
     // Validate required fields
-    if (!codigoProva || typeof codigoProva !== "string") {
-      return res.status(400).json({
-        error: "codigoProva is required and must be a string",
-      });
-    }
+    // codigoProva is no longer required as ID is auto-generated
 
     if (!nomeProva || typeof nomeProva !== "string") {
       return res.status(400).json({
@@ -264,20 +261,14 @@ router.post("/", (req: Request, res: Response) => {
       });
     }
 
-    // Check if exam code already exists
-    const allExams = getExamsForClass(classId);
-    if (allExams.some((exam) => exam.id.toString() === codigoProva)) {
-      return res.status(409).json({
-        error: "An exam with this codigoProva already exists in this class",
-      });
-    }
-
-    // Generate unique ID (using timestamp + random number if needed)
-    const examId = parseInt(codigoProva, 10) || Date.now();
+    // Generate sequential ID
+    const allExamsGlobal = examsManager.getAllExams();
+    const maxId = allExamsGlobal.reduce((max, exam) => Math.max(max, exam.id), 0);
+    const examId = maxId + 1;
 
     // Get questions by topic (tema)
     const questionsByTopic = questions.filter(q => q.topic === tema);
-    
+
     if (questionsByTopic.length === 0) {
       return res.status(400).json({
         error: `No questions found for topic: ${tema}`,

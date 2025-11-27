@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import Header from "../../components/Header";
 import CustomButton from "../../components/CustomButton";
-import CollapsibleTable, {Column, DetailColumn} from "../../components/CollapsibleTable";
+import CollapsibleTable, { Column, DetailColumn } from "../../components/CollapsibleTable";
 import Alert from "../../components/Alert";
 import Dropdown from "../../components/DropDown";
 import ExamsService from "../../services/ExamsService";
@@ -51,32 +51,32 @@ export default function ExamPage() {
   // -------------------------------
   // Carrega provas + tabela (todas)
   // -------------------------------
-const loadAllData = useCallback(async () => {
-  if (!classID) return;
+  const loadAllData = useCallback(async () => {
+    if (!classID) return;
 
-  try {
-    setTableLoading(true);
+    try {
+      setTableLoading(true);
 
-    const [examsResponse, studentsResponse] = await Promise.all([
-      ExamsService.getExamsForClass(classID),
-      ExamsService.getStudentsWithExamsForClass(classID),
-    ]);
+      const [examsResponse, studentsResponse] = await Promise.all([
+        ExamsService.getExamsForClass(classID),
+        ExamsService.getStudentsWithExamsForClass(classID),
+      ]);
 
-    setExams(examsResponse.data || []);
-    setRows(studentsResponse.data || []);
-  } catch (error) {
-    console.error("Erro ao carregar dados:", error);
-    setExams([]);
-    setRows([]);
-  } finally {
-    setTableLoading(false);
-  }
-}, [classID]);
+      setExams(examsResponse.data || []);
+      setRows(studentsResponse.data || []);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+      setExams([]);
+      setRows([]);
+    } finally {
+      setTableLoading(false);
+    }
+  }, [classID]);
 
   // carregar automaticamente ao montar
- useEffect(() => {
-   loadAllData();
- }, [loadAllData]);
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
   // ---------------------------------------------------
   // Função auxiliar: pega o ID da prova pela string título
@@ -128,8 +128,8 @@ const loadAllData = useCallback(async () => {
 
       if (!classID) throw new Error("ID da turma não encontrado");
 
-      if (!data.codProva || !data.nomeProva)
-        throw new Error("Código e nome da prova são obrigatórios");
+      if (!data.nomeProva)
+        throw new Error("Nome da prova é obrigatório");
 
       if (isNaN(parseInt(data.abertas)) || isNaN(parseInt(data.fechadas)))
         throw new Error("Quantidades inválidas");

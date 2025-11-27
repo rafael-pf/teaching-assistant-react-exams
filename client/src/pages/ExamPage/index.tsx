@@ -9,6 +9,7 @@ import ExamsService from "../../services/ExamsService";
 
 import "./ExamPage.css";
 import ExamCreatePopup from "./ExamPagePopup";
+import CorrectionButton from "../../components/CorrectionButton";
 
 const columns: Column[] = [
   { id: "studentName", label: "Aluno", align: "left" },
@@ -43,6 +44,8 @@ export default function ExamPage() {
     severity: "info" as "success" | "error" | "warning" | "info",
   });
 
+  const [students, setStudents] = useState<any[]>([]);
+
   //Função que fecha o alerta
   const handleCloseAlert = () => {
     setAlertConfig((prev) => ({ ...prev, open: false }));
@@ -63,6 +66,7 @@ const loadAllData = useCallback(async () => {
     ]);
 
     setExams(examsResponse.data || []);
+    setStudents(studentsResponse.data || []);
     setRows(studentsResponse.data || []);
   } catch (error) {
     console.error("Erro ao carregar dados:", error);
@@ -193,7 +197,13 @@ const loadAllData = useCallback(async () => {
         />
 
         {/* Botão alinhado à direita */}
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", gap: "10px", display: "flex" }}>
+          <CorrectionButton
+            students={students}
+            exam={exams.find((exam) => exam.title === selectedExam)}
+            label="Corrigir"
+            isActive={selectedExam !== "Todas as provas"}
+          />
           <CustomButton
             label="Criar Prova"
             onClick={() => setPopupOpen(true)}

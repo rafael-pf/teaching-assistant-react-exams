@@ -6,8 +6,8 @@ import CollapsibleTable, { Column, DetailColumn } from "../../components/Collaps
 import Alert from "../../components/Alert";
 import Dropdown from "../../components/DropDown";
 import ExamsService from "../../services/ExamsService";
-import { Button } from "@mui/material"; 
-import FileDownloadIcon from '@mui/icons-material/FileDownload'; 
+import { Button } from "@mui/material";
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { GeneratePDFButton } from "../../components/GeneratePDFButton";
 import "./ExamPage.css";
 import ExamCreatePopup from "./ExamPagePopup";
@@ -114,7 +114,7 @@ export default function ExamPage() {
 
   const handleOpenPdfDialog = () => {
     const examId = getExamIdByTitle(selectedExam);
-    
+
     if (examId) {
       setSelectedExamIdForPdf(examId);
       setPdfDialogOpen(true);
@@ -133,8 +133,8 @@ export default function ExamPage() {
 
       if (!classID) throw new Error("ID da turma não encontrado");
 
-      if (!data.codProva || !data.nomeProva)
-        throw new Error("Código e nome da prova são obrigatórios");
+      if (!data.nomeProva)
+        throw new Error("Nome da prova é obrigatório");
 
       if (isNaN(parseInt(data.abertas)) || isNaN(parseInt(data.fechadas)))
         throw new Error("Quantidades inválidas");
@@ -193,15 +193,15 @@ export default function ExamPage() {
         />
 
         {selectedExam !== "Todas as provas" && (
-            <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<FileDownloadIcon />}
-                onClick={handleOpenPdfDialog}
-                style={{ marginLeft: "10px", height: "40px", textTransform: "none" }}
-            >
-                Baixar Lote
-            </Button>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleOpenPdfDialog}
+            style={{ marginLeft: "10px", height: "40px", textTransform: "none" }}
+          >
+            Baixar Lote
+          </Button>
         )}
 
         <div style={{ marginLeft: "auto" }}>
@@ -238,15 +238,15 @@ export default function ExamPage() {
       />
       {classID && (
         <GeneratePDFButton
-            open={pdfDialogOpen}
-            onClose={() => setPdfDialogOpen(false)}
-            examId={selectedExamIdForPdf}
-            classId={classID}
-            defaultQuantity={rows.length > 0 ? rows.length : 30} 
+          open={pdfDialogOpen}
+          onClose={() => setPdfDialogOpen(false)}
+          examId={selectedExamIdForPdf}
+          classId={classID}
+          defaultQuantity={rows.length > 0 ? rows.length : 30}
         />
       )}
 
-      <Alert 
+      <Alert
         message={alertConfig.message}
         severity={alertConfig.severity}
         autoHideDuration={3000}

@@ -17,7 +17,6 @@ export default function ExamCreatePopup({
   loading = false,
 }: ExamCreatePopupProps) {
   const [form, setForm] = useState({
-    codProva: "",
     nomeProva: "",
     temas: "",
     abertas: "",
@@ -36,16 +35,7 @@ export default function ExamCreatePopup({
   return (
     <Modal title="Criar Prova" isOpen={isOpen} onClose={onClose}>
       <div className="popup-form">
-        {/* Cod. Prova */}
-        <label>
-          Código da Prova
-          <input
-            type="text"
-            name="codProva"
-            value={form.codProva}
-            onChange={handleChange}
-          />
-        </label>
+
 
         {/* Nome Prova */}
         <label>

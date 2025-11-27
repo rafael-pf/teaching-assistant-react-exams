@@ -17,23 +17,23 @@ import {
   ExamVersionMap,
   shuffleArray,
   getQuestionsByIds,
-  QuestionRecord     
+  QuestionRecord
 } from "../services/dataService";
 
 const formatDateExtended = (dateString: string) => {
   if (!dateString) return '___ de _________________ de ______';
-  
+
   try {
-      const [year, month, day] = dateString.split('-');
-      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      
-      return date.toLocaleDateString('pt-BR', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric'
-      });
+    const [year, month, day] = dateString.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+
+    return date.toLocaleDateString('pt-BR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
   } catch (e) {
-      return dateString;
+    return dateString;
   }
 };
 
@@ -43,16 +43,16 @@ const router = Router();
  * Gera o documento PDF (Visual)
  */
 const generateExamPDF = (
-    className: string,
-    teacherName: string,
-    examTitle: string,
-    versionNumber: number, 
-    questions: QuestionRecord[], 
-    isGabarito: boolean,
-    dateString: string
+  className: string,
+  teacherName: string,
+  examTitle: string,
+  versionNumber: number,
+  questions: QuestionRecord[],
+  isGabarito: boolean,
+  dateString: string
 ): InstanceType<typeof PDFDocument> => {
-  const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true }); 
-  const FONT_REGULAR = 'Times-Roman'; 
+  const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true });
+  const FONT_REGULAR = 'Times-Roman';
   const FONT_BOLD = 'Times-Bold';
 
   doc.font(FONT_REGULAR);
@@ -72,15 +72,15 @@ const generateExamPDF = (
   doc.moveDown(2);
 
   if (!isGabarito) {
-      doc.font(FONT_BOLD).fontSize(11);
-      doc.text(
-          'Em cada questão a seguir, some os valores das afirmações que você considera corretas e escreva o resultado da soma no espaço indicado. Todas as questões têm o mesmo peso.',
-          { align: 'justify' }
-      );
-      doc.moveDown(2);
+    doc.font(FONT_BOLD).fontSize(11);
+    doc.text(
+      'Em cada questão a seguir, some os valores das afirmações que você considera corretas e escreva o resultado da soma no espaço indicado. Todas as questões têm o mesmo peso.',
+      { align: 'justify' }
+    );
+    doc.moveDown(2);
   } else {
-      doc.font(FONT_BOLD).fontSize(14).text('GABARITO OFICIAL', { align: 'center', underline: true });
-      doc.moveDown(2);
+    doc.font(FONT_BOLD).fontSize(14).text('GABARITO OFICIAL', { align: 'center', underline: true });
+    doc.moveDown(2);
   }
 
   doc.font(FONT_REGULAR).fontSize(12);
@@ -93,70 +93,70 @@ const generateExamPDF = (
     doc.moveDown(0.5);
 
     if (q.type === 'closed' && q.options) {
-        q.options.forEach((opt, idx) => {
-            if (doc.y > 720) doc.addPage();
+      q.options.forEach((opt, idx) => {
+        if (doc.y > 720) doc.addPage();
 
-            const letra = String.fromCharCode(65 + idx);
-            const isRight = isGabarito && opt.isCorrect;
+        const letra = String.fromCharCode(65 + idx);
+        const isRight = isGabarito && opt.isCorrect;
 
-            if (isRight) {
-                doc.font(FONT_BOLD).text(`(X) ${letra}) ${opt.option}`);
-                doc.font(FONT_REGULAR);
-            } else {
-                doc.text(`( ) ${letra}) ${opt.option}`);
-            }
-        });
-        doc.moveDown(1.5);
-    } else {
-        if (isGabarito) {
-            doc.font(FONT_BOLD).text('Resposta Esperada:', { underline: true });
-            doc.font(FONT_REGULAR).text(q.answer || 'Sem resposta cadastrada.');
-            doc.moveDown(1.5);
+        if (isRight) {
+          doc.font(FONT_BOLD).text(`(X) ${letra}) ${opt.option}`);
+          doc.font(FONT_REGULAR);
         } else {
-            // Verifica espaço para as linhas de resposta
-            if (doc.y > 600) doc.addPage();
-
-            doc.moveDown(0.5);
-            doc.font(FONT_BOLD).text('Resposta:');
-            doc.moveDown(0.2);
-            
-            const linhas = 5;
-            for(let l = 0; l < linhas; l++) {
-                 doc.font(FONT_REGULAR).text('__________________________________________________________________________');
-                 doc.moveDown(0.3);
-            }
-            doc.moveDown(1.5);
+          doc.text(`( ) ${letra}) ${opt.option}`);
         }
+      });
+      doc.moveDown(1.5);
+    } else {
+      if (isGabarito) {
+        doc.font(FONT_BOLD).text('Resposta Esperada:', { underline: true });
+        doc.font(FONT_REGULAR).text(q.answer || 'Sem resposta cadastrada.');
+        doc.moveDown(1.5);
+      } else {
+        // Verifica espaço para as linhas de resposta
+        if (doc.y > 600) doc.addPage();
+
+        doc.moveDown(0.5);
+        doc.font(FONT_BOLD).text('Resposta:');
+        doc.moveDown(0.2);
+
+        const linhas = 5;
+        for (let l = 0; l < linhas; l++) {
+          doc.font(FONT_REGULAR).text('__________________________________________________________________________');
+          doc.moveDown(0.3);
+        }
+        doc.moveDown(1.5);
+      }
     }
   });
 
   if (!isGabarito) {
-      if (doc.y > 700) doc.addPage();
-      
-      doc.moveDown(2);
-      doc.font(FONT_BOLD).fontSize(12);
-      doc.text('Aluno(a): _______________________________________________________________', { align: 'center' });
+    if (doc.y > 700) doc.addPage();
+
+    doc.moveDown(2);
+    doc.font(FONT_BOLD).fontSize(12);
+    doc.text('Aluno(a): _______________________________________________________________', { align: 'center' });
   }
 
-  const range = doc.bufferedPageRange(); 
+  const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i++) {
-      doc.switchToPage(i); 
+    doc.switchToPage(i);
 
-      const oldBottomMargin = doc.page.margins.bottom;
-      doc.page.margins.bottom = 0;
+    const oldBottomMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
 
-      const bottom = doc.page.height - 30;
-      const right = doc.page.width - 50;
-      
-      doc.font(FONT_REGULAR).fontSize(10);
-      const text = `Tipo de Prova: ${versionNumber}`;
-      const width = doc.widthOfString(text);
-      
-      doc.text(text, right - width, bottom, { 
-          lineBreak: false 
-      });
+    const bottom = doc.page.height - 30;
+    const right = doc.page.width - 50;
 
-      doc.page.margins.bottom = oldBottomMargin;
+    doc.font(FONT_REGULAR).fontSize(10);
+    const text = `Tipo de Prova: ${versionNumber}`;
+    const width = doc.widthOfString(text);
+
+    doc.text(text, right - width, bottom, {
+      lineBreak: false
+    });
+
+    doc.page.margins.bottom = oldBottomMargin;
   }
 
   return doc;
@@ -165,37 +165,37 @@ const generateExamPDF = (
 
 const handleGetExamZIP = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params; 
-    const { classId, date } = req.query; 
+    const { id } = req.params;
+    const { classId, date } = req.query;
     const quantity = parseInt(req.query.quantity as string, 10);
 
     if (isNaN(quantity) || quantity <= 0) return res.status(400).json({ error: 'Quantidade inválida.' });
     if (!classId || typeof classId !== 'string') return res.status(400).json({ error: 'classId é obrigatório.' });
 
     const allExams = getExamsForClass(classId);
-    const examIdNum = parseInt(id, 10); 
+    const examIdNum = parseInt(id, 10);
     const examDef = allExams.find(e => e.id === examIdNum);
 
     if (!examDef) return res.status(404).json({ error: 'Prova não encontrada.' });
     if (!examDef.questions || examDef.questions.length === 0) {
-        return res.status(400).json({ error: 'Esta prova não possui questões vinculadas.' });
+      return res.status(400).json({ error: 'Esta prova não possui questões vinculadas.' });
     }
 
-    const className = "Engenharia de Software e Sistemas"; 
-    const teacherName = "Paulo Borba"; 
+    const className = "Engenharia de Software e Sistemas";
+    const teacherName = "Paulo Borba";
 
     const formattedDate = formatDateExtended(date as string);
 
     const timestamp = new Date();
-    const generationId = `${examIdNum}-${timestamp.getTime()}`; 
-    
+    const generationId = `${examIdNum}-${timestamp.getTime()}`;
+
     const newGenerationRecord: ExamGenerationRecord = {
-        id: generationId,
-        examId: examIdNum,
-        classId: classId,
-        timestamp: timestamp.toISOString(),
-        description: `Lote gerado em ${timestamp.toLocaleString('pt-BR')} (${quantity} provas)`,
-        versions: [] 
+      id: generationId,
+      examId: examIdNum,
+      classId: classId,
+      timestamp: timestamp.toISOString(),
+      description: `Lote gerado em ${timestamp.toLocaleString('pt-BR')} (${quantity} provas)`,
+      versions: []
     };
 
     res.setHeader('Content-Type', 'application/zip');
@@ -208,60 +208,60 @@ const handleGetExamZIP = async (req: Request, res: Response) => {
     const originalQuestionsPool = getQuestionsByIds(examDef.questions);
 
     for (let i = 1; i <= quantity; i++) {
-        
-        // Deep copy das questões para poder embaralhar
-        let versionQuestions: QuestionRecord[] = JSON.parse(JSON.stringify(originalQuestionsPool));
-        versionQuestions = shuffleArray(versionQuestions);
-        
-        versionQuestions.forEach(q => {
-            if (q.type === 'closed' && q.options && q.options.length > 0) {
-                q.options = shuffleArray(q.options);
-            }
-        });
 
-        const docProva = generateExamPDF(
-            className, 
-            teacherName, 
-            examDef.title, 
-            i, 
-            versionQuestions, 
-            false,
-            formattedDate
-        );
-        archive.append(docProva as unknown as Readable, { name: `Provas/Prova_Tipo_${i}.pdf` });
-        docProva.end();
+      // Deep copy das questões para poder embaralhar
+      let versionQuestions: QuestionRecord[] = JSON.parse(JSON.stringify(originalQuestionsPool));
+      versionQuestions = shuffleArray(versionQuestions);
 
-        const docGabarito = generateExamPDF(
-            className, 
-            teacherName, 
-            examDef.title, 
-            i, 
-            versionQuestions, 
-            true,
-            formattedDate
-        );
-        archive.append(docGabarito as unknown as Readable, { name: `Gabaritos/Gabarito_Tipo_${i}.pdf` });
-        docGabarito.end();
+      versionQuestions.forEach(q => {
+        if (q.type === 'closed' && q.options && q.options.length > 0) {
+          q.options = shuffleArray(q.options);
+        }
+      });
 
-        const mapEntry: ExamVersionMap = {
-            versionNumber: i,
-            questions: versionQuestions.map((q, idx) => {
-                let gabarito = '';
-                if (q.type === 'closed' && q.options) {
-                    const indexCorreta = q.options.findIndex(opt => opt.isCorrect);
-                    gabarito = indexCorreta >= 0 ? String.fromCharCode(65 + indexCorreta) : '?';
-                } else {
-                    gabarito = q.answer || 'Dissertativa';
-                }
-                return {
-                    numero: idx + 1,
-                    questionId: q.id,
-                    type: q.type,
-                    rightAnswer: gabarito
-                };
-            })
-        };
-        newGenerationRecord.versions.push(mapEntry);
+      const docProva = generateExamPDF(
+        className,
+        teacherName,
+        examDef.title,
+        i,
+        versionQuestions,
+        false,
+        formattedDate
+      );
+      archive.append(docProva as unknown as Readable, { name: `Provas/Prova_Tipo_${i}.pdf` });
+      docProva.end();
+
+      const docGabarito = generateExamPDF(
+        className,
+        teacherName,
+        examDef.title,
+        i,
+        versionQuestions,
+        true,
+        formattedDate
+      );
+      archive.append(docGabarito as unknown as Readable, { name: `Gabaritos/Gabarito_Tipo_${i}.pdf` });
+      docGabarito.end();
+
+      const mapEntry: ExamVersionMap = {
+        versionNumber: i,
+        questions: versionQuestions.map((q, idx) => {
+          let gabarito = '';
+          if (q.type === 'closed' && q.options) {
+            const indexCorreta = q.options.findIndex(opt => opt.isCorrect);
+            gabarito = indexCorreta >= 0 ? String.fromCharCode(65 + indexCorreta) : '?';
+          } else {
+            gabarito = q.answer || 'Dissertativa';
+          }
+          return {
+            numero: idx + 1,
+            questionId: q.id,
+            type: q.type,
+            rightAnswer: gabarito
+          };
+        })
+      };
+      newGenerationRecord.versions.push(mapEntry);
     }
 
     addExamGeneration(newGenerationRecord);
@@ -274,12 +274,12 @@ const handleGetExamZIP = async (req: Request, res: Response) => {
 };
 
 const handleGetGenerations = (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { classId } = req.query;
-    if (!classId) return res.status(400).json({ error: 'classId required' });
-    const generations = getGenerationsForExam(parseInt(id, 10), classId as string);
-    generations.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    res.json(generations);
+  const { id } = req.params;
+  const { classId } = req.query;
+  if (!classId) return res.status(400).json({ error: 'classId required' });
+  const generations = getGenerationsForExam(parseInt(id, 10), classId as string);
+  generations.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  res.json(generations);
 };
 
 router.get("/students", (req: Request, res: Response) => {
@@ -412,7 +412,7 @@ router.post("/", (req: Request, res: Response) => {
 
     // Get questions by topic (tema)
     const questionsByTopic = getQuestionsByTopic(tema);
-    
+
     if (questionsByTopic.length === 0) return res.status(400).json({ error: `No questions for topic: ${tema}` });
 
     const openQuestionsAvailable = questionsByTopic.filter(q => q.type === 'open').length;

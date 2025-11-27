@@ -61,7 +61,7 @@ export const saveDataToFile = (): void => {
         }))
       }))
     };
-    
+
     ensureDataDirectory(dataFile);
     fs.writeFileSync(dataFile, JSON.stringify(data, null, 2), 'utf8');
   } catch (error) {
@@ -72,7 +72,7 @@ export const saveDataToFile = (): void => {
 export const saveExamsToFile = (): void => {
   try {
     const data = examsManager.toJSON();
-    
+
     ensureDataDirectory(examsFile);
     fs.writeFileSync(examsFile, JSON.stringify(data, null, 2), 'utf8');
   } catch (error) {
@@ -85,7 +85,7 @@ export const saveQuestionsToFile = (): void => {
     const data = {
       questions: questions
     };
-    
+
     ensureDataDirectory(questionsFile);
     fs.writeFileSync(questionsFile, JSON.stringify(data, null, 2), 'utf8');
   } catch (error) {
@@ -98,7 +98,7 @@ export const saveStudentsExamsToFile = (): void => {
     const data = {
       studentsExams: examsManager.getAllStudentExams()
     };
-    
+
     ensureDataDirectory(studentsExamsFile);
     fs.writeFileSync(studentsExamsFile, JSON.stringify(data, null, 2), 'utf8');
   } catch (error) {
@@ -112,7 +112,7 @@ export const loadDataFromFile = (): void => {
     if (fs.existsSync(dataFile)) {
       const fileContent = fs.readFileSync(dataFile, 'utf-8');
       const data = JSON.parse(fileContent);
-      
+
       // Load students
       if (data.students && Array.isArray(data.students)) {
         data.students.forEach((studentData: any) => {
@@ -122,7 +122,7 @@ export const loadDataFromFile = (): void => {
             studentData.cpf,
             studentData.email
           );
-          
+
           try {
             studentSet.addStudent(student);
           } catch (error) {
@@ -144,7 +144,7 @@ export const loadDataFromFile = (): void => {
                 const student = studentSet.findStudentByCPF(enrollmentData.studentCPF);
                 if (student) {
                   const enrollment = classObj.addEnrollment(student);
-                  
+
                   // Load evaluations for this enrollment
                   if (enrollmentData.evaluations && Array.isArray(enrollmentData.evaluations)) {
                     enrollmentData.evaluations.forEach((evalData: any) => {
@@ -173,7 +173,7 @@ export const loadExamsFromFile = (): void => {
     if (fs.existsSync(examsFile)) {
       const fileContent = fs.readFileSync(examsFile, 'utf-8');
       const data = JSON.parse(fileContent);
-      
+
       if (data.exams && Array.isArray(data.exams)) {
         data.exams.forEach((exam: ExamRecord) => {
           examsManager.addExam(exam);
@@ -190,7 +190,7 @@ export const loadQuestionsFromFile = (): void => {
     if (fs.existsSync(questionsFile)) {
       const fileContent = fs.readFileSync(questionsFile, 'utf-8');
       const data = JSON.parse(fileContent);
-      
+
       if (data.questions && Array.isArray(data.questions)) {
         questions.length = 0; // Clear existing questions
         questions.push(...data.questions);
@@ -206,7 +206,7 @@ export const loadStudentsExamsFromFile = (): void => {
     if (fs.existsSync(studentsExamsFile)) {
       const fileContent = fs.readFileSync(studentsExamsFile, 'utf-8');
       const data = JSON.parse(fileContent);
-      
+
       if (data.studentsExams && Array.isArray(data.studentsExams)) {
         data.studentsExams.forEach((studentExam: StudentExamRecord) => {
           examsManager.addStudentExam(studentExam);
@@ -312,26 +312,26 @@ export const getStudentExamById = (studentExamId: number): StudentExamRecord | u
  */
 export const generateStudentExams = (examId: number, classId: string): StudentExamRecord[] => {
   try {
-    const exam = examsManager.getExamById(examId);
+    const exam = examsManager.getExamById(examId);//case that examId is not found
     if (!exam || exam.classId !== classId) {
-      throw new Error(`Exam ${examId} not found in class ${classId}`);
+      throw new Error(`Prova ${examId} não encontrada na turma ${classId}`);
     }
 
-    const classObj = classes.findClassById(classId);
+    const classObj = classes.findClassById(classId);//case that classId is not found
     if (!classObj) {
-      throw new Error(`Class ${classId} not found`);
+      throw new Error(`Turma ${classId} não encontrada`);
     }
 
     const enrolledStudents = classObj.getEnrolledStudents();
     const generatedExams: StudentExamRecord[] = [];
 
     // Get available questions
-    const availableQuestions = questions.filter(q => 
+    const availableQuestions = questions.filter(q =>
       exam.questions.includes(q.id)
     );
 
     if (availableQuestions.length === 0) {
-      throw new Error(`No questions found for exam ${examId}`);
+      throw new Error(`Nenhuma questão encontrada para a prova ${examId}`);
     }
 
     // Separate questions by type
@@ -341,20 +341,20 @@ export const generateStudentExams = (examId: number, classId: string): StudentEx
     // Validate we have enough questions
     if (openQuestions.length < exam.openQuestions) {
       throw new Error(
-        `Not enough open questions. Required: ${exam.openQuestions}, Available: ${openQuestions.length}`
+        `Questões abertas insuficientes. Necessário: ${exam.openQuestions}, Disponível: ${openQuestions.length}`
       );
     }
 
     if (closedQuestions.length < exam.closedQuestions) {
       throw new Error(
-        `Not enough closed questions. Required: ${exam.closedQuestions}, Available: ${closedQuestions.length}`
+        `Questões fechadas insuficientes. Necessário: ${exam.closedQuestions}, Disponível: ${closedQuestions.length}`
       );
     }
 
     // Generate exam for each student
     enrolledStudents.forEach((student) => {
       const studentCPF = student.getCPF();
-      
+
       // Check if student already has this exam
       const existingExam = examsManager.getAllStudentExams().find(
         se => se.examId === examId && se.studentCPF === studentCPF

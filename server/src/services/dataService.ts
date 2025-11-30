@@ -341,9 +341,9 @@ export const generateStudentExams = (examId: number, classId: string): StudentEx
 
     const enrolledStudents = classObj.getEnrolledStudents();
     const generatedExams: StudentExamRecord[] = [];
-    const availableQuestions = questionsManager.getQuestionsByIds(exam.questions);
 
-    if (availableQuestions.length === 0) throw new Error(`No questions found for exam ${examId}`);
+    // Get available questions
+    const availableQuestions = questionsManager.getQuestionsByIds(exam.questions);
 
     const openQuestions = availableQuestions.filter(q => q.type === 'open');
     const closedQuestions = availableQuestions.filter(q => q.type === 'closed');

@@ -17,7 +17,7 @@ import {
   ExamVersionMap,
   shuffleArray,
   getQuestionsByIds,
-  QuestionRecord
+  QuestionRecord,
 } from "../services/dataService";
 
 const formatDateExtended = (dateString: string) => {

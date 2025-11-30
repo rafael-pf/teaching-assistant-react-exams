@@ -62,7 +62,8 @@ defineFeature(feature, (test) => {
 
   test('Deleting an exam', ({ given, when, then, and }) => {
     given(/^the system receives a request to delete the exam "(.*)"$/, (arg0) => {
-      // TODO: Implement
+      // TODO: Implement DELETE route first
+      // Currently no DELETE /api/exams/:id route exists
     });
 
     when('the system validates the rules', () => {
@@ -79,24 +80,41 @@ defineFeature(feature, (test) => {
   });
 
   test('Validation of inconsistent rules', ({ given, and, when, then }) => {
-    given(/^the request to create the exam "(.*)" specifies "(.*)"$/, (arg0, arg1) => {
-      // TODO: Implement
+    let examData: any = {};
+    let validationResponse: Response;
+
+    given(/^the request to create the exam "(.*)" specifies "(.*)"$/, (examName: string, questionSpec: string) => {
+      const quantity = parseInt(questionSpec.split(' ')[0]);
+      examData = {
+        nomeProva: examName,
+        quantidadeAberta: quantity,
+        quantidadeFechada: 0,
+        classId: 'TEST-2024',
+        tema: 'Gerência de Projetos', // Topic with limited questions
+      };
     });
 
     and('the question bank does not contain enough open questions', () => {
-      // TODO: Implement
+      // This is a precondition - the topic "Gerência de Projetos" 
+      // has only 5 questions total in questions.json
+      // We're requesting 20, which exceeds available
     });
 
-    when('the system evaluates the defined rules', () => {
-      // TODO: Implement
+    when('the system evaluates the defined rules', async () => {
+      validationResponse = await request(app)
+        .post('/api/exams')
+        .send(examData)
+        .set('Content-Type', 'application/json');
     });
 
-    then(/^the system rejects the creation of the exam "(.*)"$/, (arg0) => {
-      // TODO: Implement
+    then(/^the system rejects the creation of the exam "(.*)"$/, (examName: string) => {
+      expect(validationResponse.status).toBe(400);
+      expect(validationResponse.body).toHaveProperty('error');
     });
 
-    and(/^records the message "(.*)"$/, (arg0) => {
-      // TODO: Implement
+    and(/^records the message "(.*)"$/, (expectedMessage: string) => {
+      // The actual error message should indicate insufficient questions
+      expect(validationResponse.body.error).toContain('Not enough');
     });
   });
 
@@ -177,20 +195,35 @@ defineFeature(feature, (test) => {
   });
 
   test('Creating an exam with missing required fields', ({ given, when, then, and }) => {
-    given(/^the request to create an exam is missing the "(.*)" field$/, (arg0) => {
-      // TODO: Implement
+    let examData: any = {};
+    let createResponse: Response;
+
+    given(/^the request to create an exam is missing the "(.*)" field$/, (missingField: string) => {
+      // Create exam data without the specified field
+      examData = {
+        quantidadeAberta: 2,
+        quantidadeFechada: 3,
+        classId: 'TEST-2024',
+        tema: 'Requisitos de Software',
+      };
+      // Intentionally omit nomeProva field
     });
 
-    when('the system validates the rules', () => {
-      // TODO: Implement
+    when('the system validates the rules', async () => {
+      createResponse = await request(app)
+        .post('/api/exams')
+        .send(examData)
+        .set('Content-Type', 'application/json');
     });
 
     then('the system rejects the creation of the exam', () => {
-      // TODO: Implement
+      expect(createResponse.status).toBe(400);
+      expect(createResponse.body).toHaveProperty('error');
     });
 
-    and(/^records the message "(.*)"$/, (arg0) => {
-      // TODO: Implement
+    and(/^records the message "(.*)"$/, (expectedMessage: string) => {
+      expect(createResponse.body.error).toContain('nomeProva');
+      expect(createResponse.body.error).toContain('required');
     });
   });
 

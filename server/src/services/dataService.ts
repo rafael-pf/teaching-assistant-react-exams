@@ -23,17 +23,38 @@ export interface Question {
   answer?: string;
 }
 
+export interface ExamVersionMap {
+  versionNumber: number;
+  questions: {
+    numero: number;
+    questionId: number;
+    type: 'open' | 'closed';
+    rightAnswer: string;
+  }[];
+}
+
+export interface ExamGenerationRecord {
+  id: string;
+  examId: number;
+  classId: string;
+  timestamp: string;
+  description: string;
+  versions: ExamVersionMap[];
+}
+
 // In-memory storage with file persistence
 export const studentSet = new StudentSet();
 export const classes = new Classes();
 export const examsManager = new Exams();
 export const questions: Question[] = [];
+export const examGenerations: ExamGenerationRecord[] = [];
 
 // File paths
 export const dataFile = path.resolve('./data/app-data.json');
 export const examsFile = path.resolve('./data/exams.json');
 export const questionsFile = path.resolve('./data/questions.json');
 export const studentsExamsFile = path.resolve('./data/students-exams.json');
+export const generationsFile = path.resolve('./data/exam-generations.json');
 
 // Persistence functions
 const ensureDataDirectory = (filePath: string): void => {
@@ -218,12 +239,45 @@ export const loadStudentsExamsFromFile = (): void => {
   }
 };
 
+export const saveGenerationsToFile = (): void => {
+  try {
+    const data = { generations: examGenerations };
+    // Reutilizando sua função ensureDataDirectory se ela for exportada ou estiver no escopo
+    const dataDir = path.dirname(generationsFile);
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    
+    fs.writeFileSync(generationsFile, JSON.stringify(data, null, 2), 'utf8');
+  } catch (error) {
+    console.error('Error saving generations to file:', error);
+  }
+};
+
+export const loadGenerationsFromFile = (): void => {
+  try {
+    if (fs.existsSync(generationsFile)) {
+      const fileContent = fs.readFileSync(generationsFile, 'utf-8');
+      const data = JSON.parse(fileContent);
+      if (data.generations && Array.isArray(data.generations)) {
+        examGenerations.length = 0;
+        examGenerations.push(...data.generations);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading generations:', error);
+  }
+};
+
+export const triggerSaveGenerations = (): void => {
+  setImmediate(() => saveGenerationsToFile());
+};
+
 // Load all data files
 export const loadAllData = (): void => {
   loadDataFromFile();
   loadExamsFromFile();
   loadQuestionsFromFile();
   loadStudentsExamsFromFile();
+  loadGenerationsFromFile();
 };
 
 // Trigger save after any modification (async to not block operations)
@@ -302,6 +356,15 @@ export const updateStudentExamAnswers = (
 
 export const getStudentExamById = (studentExamId: number): StudentExamRecord | undefined => {
   return examsManager.getStudentExamById(studentExamId);
+};
+
+export const addExamGeneration = (record: ExamGenerationRecord): void => {
+  examGenerations.push(record);
+  triggerSaveGenerations();
+};
+
+export const getGenerationsForExam = (examId: number, classId: string): ExamGenerationRecord[] => {
+  return examGenerations.filter(g => g.examId === examId && g.classId === classId);
 };
 
 /**

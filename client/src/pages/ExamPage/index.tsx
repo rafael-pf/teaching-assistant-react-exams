@@ -2,11 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import Header from "../../components/Header";
 import CustomButton from "../../components/CustomButton";
-import CollapsibleTable, {Column, DetailColumn} from "../../components/CollapsibleTable";
+import CollapsibleTable, { Column, DetailColumn } from "../../components/CollapsibleTable";
 import Alert from "../../components/Alert";
 import Dropdown from "../../components/DropDown";
 import ExamsService from "../../services/ExamsService";
-
+import { Button } from "@mui/material"; 
+import FileDownloadIcon from '@mui/icons-material/FileDownload'; 
+import { GeneratePDFButton } from "../../components/GeneratePDFButton";
 import "./ExamPage.css";
 import ExamCreatePopup from "./ExamPagePopup";
 
@@ -37,58 +39,50 @@ export default function ExamPage() {
 
   const [selectedExam, setSelectedExam] = useState("Todas as provas");
 
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [selectedExamIdForPdf, setSelectedExamIdForPdf] = useState<string | null>(null);
+
   const [alertConfig, setAlertConfig] = useState({
     open: false,
     message: "",
     severity: "info" as "success" | "error" | "warning" | "info",
   });
 
-  //Função que fecha o alerta
   const handleCloseAlert = () => {
     setAlertConfig((prev) => ({ ...prev, open: false }));
   };
 
-  // -------------------------------
-  // Carrega provas + tabela (todas)
-  // -------------------------------
-const loadAllData = useCallback(async () => {
-  if (!classID) return;
+  const loadAllData = useCallback(async () => {
+    if (!classID) return;
 
-  try {
-    setTableLoading(true);
+    try {
+      setTableLoading(true);
 
-    const [examsResponse, studentsResponse] = await Promise.all([
-      ExamsService.getExamsForClass(classID),
-      ExamsService.getStudentsWithExamsForClass(classID),
-    ]);
+      const [examsResponse, studentsResponse] = await Promise.all([
+        ExamsService.getExamsForClass(classID),
+        ExamsService.getStudentsWithExamsForClass(classID),
+      ]);
 
-    setExams(examsResponse.data || []);
-    setRows(studentsResponse.data || []);
-  } catch (error) {
-    console.error("Erro ao carregar dados:", error);
-    setExams([]);
-    setRows([]);
-  } finally {
-    setTableLoading(false);
-  }
-}, [classID]);
+      setExams(examsResponse.data || []);
+      setRows(studentsResponse.data || []);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+      setExams([]);
+      setRows([]);
+    } finally {
+      setTableLoading(false);
+    }
+  }, [classID]);
 
-  // carregar automaticamente ao montar
- useEffect(() => {
-   loadAllData();
- }, [loadAllData]);
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
 
-  // ---------------------------------------------------
-  // Função auxiliar: pega o ID da prova pela string título
-  // ---------------------------------------------------
   const getExamIdByTitle = (title: string): string | undefined => {
     const exam = exams.find((e) => e.title === title);
     return exam ? exam.id.toString() : undefined;
   };
 
-  // -------------------------------------------
-  // Filtro via API (carrega somente uma prova)
-  // -------------------------------------------
   const handleExamSelect = async (title: string) => {
     setSelectedExam(title);
 
@@ -110,7 +104,6 @@ const loadAllData = useCallback(async () => {
         Number(examId)
       );
 
-
       setRows(response.data || []);
     } catch (error) {
       console.error("Erro ao filtrar:", error);
@@ -119,9 +112,21 @@ const loadAllData = useCallback(async () => {
     }
   };
 
-  // -------------------------------------------
-  // Criar prova
-  // -------------------------------------------
+  const handleOpenPdfDialog = () => {
+    const examId = getExamIdByTitle(selectedExam);
+    
+    if (examId) {
+      setSelectedExamIdForPdf(examId);
+      setPdfDialogOpen(true);
+    } else {
+      setAlertConfig({
+        open: true,
+        message: "Selecione uma prova específica para gerar o PDF.",
+        severity: "warning"
+      });
+    }
+  };
+
   const handleCreateExam = async (data: any) => {
     try {
       setLoading(true);
@@ -157,7 +162,6 @@ const loadAllData = useCallback(async () => {
     }
   };
 
-  // opções do dropdown (somente strings)
   const dropdownOptions = useMemo(() => {
     return ["Todas as provas", ...exams.map((e) => e.title)];
   }, [exams]);
@@ -165,13 +169,10 @@ const loadAllData = useCallback(async () => {
   return (
     <div className="exam-page">
       <Header />
-
-      {/* Controles superiores */}
       <div
         className="top-controls"
         style={{ display: "flex", gap: "15px", alignItems: "center" }}
       >
-        {/* ID da turma */}
         <input
           type="text"
           value={classID || ""}
@@ -185,14 +186,24 @@ const loadAllData = useCallback(async () => {
           }}
         />
 
-        {/* Dropdown */}
         <Dropdown
           subjects={dropdownOptions}
           onSelect={handleExamSelect}
           initialText={selectedExam}
         />
 
-        {/* Botão alinhado à direita */}
+        {selectedExam !== "Todas as provas" && (
+            <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<FileDownloadIcon />}
+                onClick={handleOpenPdfDialog}
+                style={{ marginLeft: "10px", height: "40px", textTransform: "none" }}
+            >
+                Baixar Lote
+            </Button>
+        )}
+
         <div style={{ marginLeft: "auto" }}>
           <CustomButton
             label="Criar Prova"
@@ -201,7 +212,6 @@ const loadAllData = useCallback(async () => {
         </div>
       </div>
 
-      {/* TABELA */}
       {tableLoading ? (
         <p style={{ padding: "20px", textAlign: "center" }}>Carregando...</p>
       ) : rows.length === 0 ? (
@@ -220,16 +230,23 @@ const loadAllData = useCallback(async () => {
           })}
         />
       )}
-
-      {/* POPUP */}
       <ExamCreatePopup
         isOpen={popupOpen}
         onClose={() => setPopupOpen(false)}
         onSubmit={handleCreateExam}
         loading={loading}
       />
+      {classID && (
+        <GeneratePDFButton
+            open={pdfDialogOpen}
+            onClose={() => setPdfDialogOpen(false)}
+            examId={selectedExamIdForPdf}
+            classId={classID}
+            defaultQuantity={rows.length > 0 ? rows.length : 30} 
+        />
+      )}
 
-      <Alert //Alerta para criação da prova com exito ou não
+      <Alert 
         message={alertConfig.message}
         severity={alertConfig.severity}
         autoHideDuration={3000}

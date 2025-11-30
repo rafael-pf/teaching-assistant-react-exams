@@ -189,54 +189,45 @@ class ExamsService {
     }
   }
 
-  public static async downloadExamZIP(
-    examId: string,
-    quantity: number
-  ): Promise<void> {
-    try {
-      const response = await fetch(
-        `${ExamsService.apiUrl}/exams/${examId}/zip?quantity=${quantity}`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/zip",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const status = response.status;
-        let errorMessage = "Falha ao baixar o PDF.";
-
+  public static async downloadExamsZIP(examId: string, quantity: number, classId: string): Promise<void> {
         try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (e) {}
-        if (status === 404) {
-          throw new Error("Prova não encontrada.");
-        }
-        if (status === 403) {
-          throw new Error("Você não tem permissão para baixar esta prova.");
-        }
-        throw new Error(errorMessage);
-      }
+            const response = await fetch(`${ExamsService.apiUrl}/exams/${examId}/zip?quantity=${quantity}&classId=${classId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/zip',
+                },
+            });
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(
-        new Blob([blob], { type: "application/zip" })
-      );
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `prova-${examId}-versions.zip`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error downloading exam ZIP:", error);
-      throw error;
+            if (!response.ok) {
+                const status = response.status;
+                let errorMessage = 'Falha ao baixar o ZIP.';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch (e) { }
+
+                if (status === 404) throw new Error('Prova não encontrada.');
+                if (status === 400) throw new Error(errorMessage); 
+                throw new Error(errorMessage);
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(
+                new Blob([blob], { type: 'application/zip' })
+            );
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Lote_Provas_${examId}.zip`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+        } catch (error) {
+            console.error('Error downloading exams ZIP:', error);
+            throw error;
+        }
     }
-  }
 }
 
 export default ExamsService;

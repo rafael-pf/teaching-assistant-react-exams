@@ -7,9 +7,10 @@ import StudentList from './components/StudentList';
 import StudentForm from './components/StudentForm';
 import Evaluations from './components/Evaluations';
 import Classes from './components/Classes';
+import QuestionsPage from './pages/QuestionsPage';
 import './App.css';
 
-type TabType = 'students' | 'evaluations' | 'classes';
+type TabType = 'students' | 'evaluations' | 'classes' | 'questions';
 
 const App: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -143,6 +144,12 @@ const App: React.FC = () => {
           >
             Classes
           </button>
+          <button
+            className={`tab-button ${activeTab === 'questions' ? 'active' : ''}`}
+            onClick={() => setActiveTab('questions')}
+          >
+            Questions
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -211,6 +218,10 @@ const App: React.FC = () => {
               onClassDeleted={handleClassDeleted}
               onError={handleError}
             />
+          )}
+
+          {activeTab === 'questions' && (
+            <QuestionsPage />
           )}
         </div>
       </main>

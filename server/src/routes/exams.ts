@@ -5,8 +5,9 @@ import {
   addExam,
   triggerSaveExams,
   generateStudentExams,
-  questions,
   examsManager,
+  getQuestionById,
+  getQuestionsByTopic,
 } from "../services/dataService";
 
 const router = Router();
@@ -67,7 +68,7 @@ router.get("/students", (req: Request, res: Response) => {
       // Get ONLY the questions selected for THIS student
       const examQuestions = studentData.answers
         .map((a: { questionId: number; answer: any; }) => {
-          const q = questions.find((q) => q.id === a.questionId);
+          const q = getQuestionById(a.questionId);
           if (!q) return null;
 
           return {
@@ -267,7 +268,7 @@ router.post("/", (req: Request, res: Response) => {
     const examId = maxId + 1;
 
     // Get questions by topic (tema)
-    const questionsByTopic = questions.filter(q => q.topic === tema);
+    const questionsByTopic = getQuestionsByTopic(tema);
 
     if (questionsByTopic.length === 0) {
       return res.status(400).json({

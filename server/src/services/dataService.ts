@@ -73,7 +73,6 @@ export const saveExamsToFile = (): void => {
 export const saveQuestionsToFile = (): void => {
   try {
     const data = questionsManager.toJSON();
-
     ensureDataDirectory(questionsFile);
     fs.writeFileSync(questionsFile, JSON.stringify(data, null, 2), 'utf8');
   } catch (error) {

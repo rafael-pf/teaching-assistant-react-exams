@@ -6,8 +6,9 @@ Feature: Exam registration and management via user interface
   @gui
   Scenario: Register exam with rules
     Given professor "Paulo" accesses the screen "Exam Registration"
-    When the professor provides the title "Requisitos" and theme "Requisitos de Software"
+    When the professor provides the title "Requisitos"
     And defines the rules "2 open questions" and "3 closed questions"
+    And selects the questions "1" and "2" and "3" and "4" and "5"
     And confirms the exam registration
     Then the system registers the exam "Requisitos" successfully
     And displays the message "Provas geradas com sucesso!"

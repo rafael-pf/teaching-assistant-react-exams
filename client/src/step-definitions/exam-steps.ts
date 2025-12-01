@@ -76,17 +76,13 @@ Given('professor {string} accesses the screen {string}', async function (profess
    WHEN
 -------------------------------------------------------------*/
 
-When('the professor provides the title {string} and theme {string}', async function (title: string, theme: string) {
+When('the professor provides the title {string}', async function (title: string) {
     examTitleGlobal = title;
 
     await page.waitForSelector('[data-testid="exam-title"]');
 
     await page.click('[data-testid="exam-title"]');
     await page.type('[data-testid="exam-title"]', title);
-
-    await page.waitForSelector('[data-testid="exam-theme"]');
-    await page.click('[data-testid="exam-theme"]');
-    await page.type('[data-testid="exam-theme"]', theme);
 });
 
 When('defines the rules {string} and {string}', async function (rule1: string, rule2: string) {
@@ -100,6 +96,18 @@ When('defines the rules {string} and {string}', async function (rule1: string, r
     await page.waitForSelector('[data-testid="closed-questions"]');
     await page.click('[data-testid="closed-questions"]');
     await page.type('[data-testid="closed-questions"]', rule2.replace(/\D/g, ''));
+});
+
+When('selects the questions {string} and {string} and {string} and {string} and {string}', async function (q1: string, q2: string, q3: string, q4: string, q5: string) {
+    const questionsToSelect = [q1, q2, q3, q4, q5];
+    // Aguarda carregar a lista
+    await page.waitForSelector('.questions-list .question-item');
+    for (const qId of questionsToSelect) {
+        const checkboxSelector = `[data-testid="question-checkbox-${qId}"]`;
+        // Verifica se o checkbox existe antes de clicar
+        await page.waitForSelector(checkboxSelector);
+        await page.click(checkboxSelector);
+    }
 });
 
 When('confirms the exam registration', async function () {

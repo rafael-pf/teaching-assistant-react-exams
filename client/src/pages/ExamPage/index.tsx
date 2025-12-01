@@ -208,6 +208,7 @@ export default function ExamPage() {
           <CustomButton
             label="Criar Prova"
             onClick={() => setPopupOpen(true)}
+            data-testid="open-create-exam"
           />
         </div>
       </div>
@@ -220,6 +221,7 @@ export default function ExamPage() {
         </p>
       ) : (
         <CollapsibleTable
+          data-testid="exam-table"
           columns={columns}
           detailColumns={detailColumns}
           rows={rows}
@@ -246,7 +248,8 @@ export default function ExamPage() {
         />
       )}
 
-      <Alert
+      <Alert //Alerta para criação da prova com exito ou não
+        data-testid={alertConfig.severity === "success" ? "alert-success" : "alert-error"}
         message={alertConfig.message}
         severity={alertConfig.severity}
         autoHideDuration={3000}

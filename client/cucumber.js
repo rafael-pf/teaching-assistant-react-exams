@@ -1,9 +1,8 @@
 module.exports = {
   default: {
-    require: [
-      'ts-node/register',
-      'src/step-definitions/**/*.ts'
-    ],
+    paths: ['src/features/**/*.feature'],
+    require: ['src/step-definitions/**/*.ts'],
+    requireModule: ['ts-node/register/transpile-only'],
     format: [
       'progress-bar',
       'json:reports/cucumber_report.json',
@@ -11,8 +10,6 @@ module.exports = {
     ],
     formatOptions: {
       snippetInterface: 'async-await'
-    },
-    paths: ['src/features/**/*.feature'],
-    requireModule: ['ts-node/register']
+    }
   }
 };

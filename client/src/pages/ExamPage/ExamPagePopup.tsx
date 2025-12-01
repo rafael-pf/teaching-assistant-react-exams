@@ -34,8 +34,7 @@ export default function ExamCreatePopup({
 
   return (
     <Modal title="Criar Prova" isOpen={isOpen} onClose={onClose}>
-      <div className="popup-form">
-
+      <div className="popup-form" data-testid="exam-popup">
 
         {/* Nome Prova */}
         <label>
@@ -45,6 +44,7 @@ export default function ExamCreatePopup({
             name="nomeProva"
             value={form.nomeProva}
             onChange={handleChange}
+            data-testid="exam-title"
           />
         </label>
 
@@ -56,6 +56,7 @@ export default function ExamCreatePopup({
             name="temas"
             value={form.temas}
             onChange={handleChange}
+            data-testid="exam-theme"
           />
         </label>
 
@@ -69,6 +70,7 @@ export default function ExamCreatePopup({
               min={0}
               value={form.abertas}
               onChange={handleChange}
+              data-testid="open-questions"
             />
           </label>
 
@@ -80,6 +82,7 @@ export default function ExamCreatePopup({
               min={0}
               value={form.fechadas}
               onChange={handleChange}
+              data-testid="closed-questions"
             />
           </label>
         </div>
@@ -88,6 +91,7 @@ export default function ExamCreatePopup({
           label={loading ? "Gerando..." : "CRIAR PROVA"}
           onClick={handleSubmit}
           disabled={loading}
+          data-testid="confirm-create-exam"
         />
       </div>
     </Modal>

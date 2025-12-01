@@ -6,7 +6,7 @@ Feature: Business rules for exam creation and generation
   @service
   Scenario: Registering an exam
     Given the system receives a request to register the exam "Requisitos"
-    And the rules define "3 open questions" and "5 closed questions"
+    And the rules define "2 open questions" and "3 closed questions"
     And the question bank contains enough questions to satisfy these rules
     When the system validates the rules
     Then the system creates the exam "Requisitos" with the associated rules
@@ -29,7 +29,7 @@ Feature: Business rules for exam creation and generation
 
   @service
   Scenario: Question selection according to rules
-    Given exam "Requisitos" has rules defining "3 open questions" and "5 closed questions"
+    Given exam "Requisitos" has rules defining "2 open questions" and "3 closed questions"
     And the system is generating an individual version for student "Vinícius"
     When the system selects the questions
     Then it chooses questions from the bank that match the type and quantity required by the rules

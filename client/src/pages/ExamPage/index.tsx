@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import Header from "../../components/Header";
 import CustomButton from "../../components/CustomButton";
-import CollapsibleTable, {
-  Column,
-  DetailColumn,
-} from "../../components/CollapsibleTable";
+import CollapsibleTable, { Column, DetailColumn } from "../../components/CollapsibleTable";
+import Alert from "../../components/Alert";
 import Dropdown from "../../components/DropDown";
 import ExamsService from "../../services/ExamsService";
 
@@ -39,10 +37,21 @@ export default function ExamPage() {
 
   const [selectedExam, setSelectedExam] = useState("Todas as provas");
 
+  const [alertConfig, setAlertConfig] = useState({
+    open: false,
+    message: "",
+    severity: "info" as "success" | "error" | "warning" | "info",
+  });
+
+  //Função que fecha o alerta
+  const handleCloseAlert = () => {
+    setAlertConfig((prev) => ({ ...prev, open: false }));
+  };
+
   // -------------------------------
   // Carrega provas + tabela (todas)
   // -------------------------------
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     if (!classID) return;
 
     try {
@@ -62,12 +71,12 @@ export default function ExamPage() {
     } finally {
       setTableLoading(false);
     }
-  };
+  }, [classID]);
 
   // carregar automaticamente ao montar
   useEffect(() => {
     loadAllData();
-  }, [classID]);
+  }, [loadAllData]);
 
   // ---------------------------------------------------
   // Função auxiliar: pega o ID da prova pela string título
@@ -119,22 +128,72 @@ export default function ExamPage() {
 
       if (!classID) throw new Error("ID da turma não encontrado");
 
-      if (!data.codProva || !data.nomeProva)
-        throw new Error("Código e nome da prova são obrigatórios");
+      if (!data.nomeProva)
+        throw new Error("Nome da prova é obrigatório");
 
       if (isNaN(parseInt(data.abertas)) || isNaN(parseInt(data.fechadas)))
         throw new Error("Quantidades inválidas");
 
-      const result = await ExamsService.createAndGenerateExams(data, classID);
+      await ExamsService.createExams(data, classID);
 
-      alert(`Provas geradas com sucesso! Total: ${result.totalGenerated}`);
+      setAlertConfig({
+        open: true,
+        message: `Provas geradas com sucesso!`,
+        severity: "success",
+      });
+
       setPopupOpen(false);
 
-      await loadAllData(); // recarrega tudo
+      await loadAllData();
     } catch (err) {
-      alert(
-        `Erro: ${err instanceof Error ? err.message : "Erro desconhecido"}`
-      );
+      setAlertConfig({
+        open: true,
+        message:
+          err instanceof Error ? err.message : "Erro desconhecido ao criar prova",
+        severity: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // -------------------------------------------
+  // Deletar prova
+  // -------------------------------------------
+  const handleDeleteExam = async () => {
+    if (!classID) return;
+
+    const examId = getExamIdByTitle(selectedExam);
+    if (!examId) return;
+
+    // Confirmação antes de deletar
+    const confirmed = window.confirm(
+      `Tem certeza que deseja deletar a prova "${selectedExam}"? Esta ação não pode ser desfeita.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+
+      await ExamsService.deleteExam(Number(examId), classID);
+
+      setAlertConfig({
+        open: true,
+        message: `Prova "${selectedExam}" deletada com sucesso!`,
+        severity: "success",
+      });
+
+      // Resetar para "Todas as provas" e recarregar
+      setSelectedExam("Todas as provas");
+      await loadAllData();
+    } catch (err) {
+      setAlertConfig({
+        open: true,
+        message:
+          err instanceof Error ? err.message : "Erro ao deletar prova",
+        severity: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -176,10 +235,25 @@ export default function ExamPage() {
         />
 
         {/* Botão alinhado à direita */}
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: "10px" }}>
+          {/* Botão de deletar - só aparece quando uma prova específica está selecionada */}
+          {selectedExam !== "Todas as provas" && (
+            <CustomButton
+              label="Deletar Prova"
+              onClick={handleDeleteExam}
+              data-testid="delete-exam-button"
+              style={{
+                backgroundColor: "#dc3545",
+                color: "white",
+              }}
+              disabled={loading}
+            />
+          )}
+
           <CustomButton
             label="Criar Prova"
             onClick={() => setPopupOpen(true)}
+            data-testid="open-create-exam"
           />
         </div>
       </div>
@@ -193,6 +267,7 @@ export default function ExamPage() {
         </p>
       ) : (
         <CollapsibleTable
+          data-testid="exam-table"
           columns={columns}
           detailColumns={detailColumns}
           rows={rows}
@@ -210,6 +285,15 @@ export default function ExamPage() {
         onClose={() => setPopupOpen(false)}
         onSubmit={handleCreateExam}
         loading={loading}
+      />
+
+      <Alert //Alerta para criação da prova com exito ou não
+        data-testid={alertConfig.severity === "success" ? "alert-success" : "alert-error"}
+        message={alertConfig.message}
+        severity={alertConfig.severity}
+        autoHideDuration={3000}
+        open={alertConfig.open}
+        onClose={handleCloseAlert}
       />
     </div>
   );

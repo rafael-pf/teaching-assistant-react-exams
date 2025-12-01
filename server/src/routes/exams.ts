@@ -11,6 +11,7 @@ import {
   cleanCPF,
   addStudentExam,
 } from "../services/dataService";
+import { Correction } from "../models/Correction";
 
 const router = Router();
 
@@ -81,7 +82,8 @@ router.get("/students", (req: Request, res: Response) => {
           };
         })
         .filter(Boolean);
-
+      
+      const finalGrade = Correction.getGrade(studentData.studentCPF, studentData.examId);
       // Return table row format
       return {
         cpf: studentData.studentCPF,
@@ -89,7 +91,7 @@ router.get("/students", (req: Request, res: Response) => {
         examID: studentData.examId,
         qtdAberta: examDef.openQuestions,
         qtdFechada: examDef.closedQuestions,
-        grade: studentData.grade !== undefined ? studentData.grade : "Não corrigido",
+        grade: finalGrade !== null ? finalGrade : "Não corrigido",
         ativo: "Sim",
         details: examQuestions,
       };

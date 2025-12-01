@@ -31,8 +31,7 @@ class ExamsService {
     classId: string
   ): Promise<any> {
     const response = await fetch(
-      `${
-        ExamsService.apiUrl
+      `${ExamsService.apiUrl
       }/exams/${examId}/generate?classId=${encodeURIComponent(classId)}`,
       {
         method: "POST",
@@ -143,6 +142,34 @@ class ExamsService {
     return response.json();
   }
 
+  /**
+   * Delete an exam by its ID
+   * @param examId - The exam ID to delete
+   * @param classId - The class ID (for validation)
+   * @returns Promise with deletion confirmation
+   */
+  public static async deleteExam(
+    examId: number,
+    classId: string
+  ): Promise<any> {
+    const response = await fetch(
+      `${ExamsService.apiUrl}/exams/${examId}?classId=${encodeURIComponent(classId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Falha ao deletar a prova");
+    }
+
+    return response.json();
+  }
+
   public static async downloadExamPDF(examId: string): Promise<void> {
     try {
       const response = await fetch(
@@ -162,7 +189,7 @@ class ExamsService {
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
-        } catch (e) {}
+        } catch (e) { }
         if (status === 404) {
           throw new Error("Prova não encontrada.");
         }
@@ -211,7 +238,7 @@ class ExamsService {
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorMessage;
-        } catch (e) {}
+        } catch (e) { }
         if (status === 404) {
           throw new Error("Prova não encontrada.");
         }

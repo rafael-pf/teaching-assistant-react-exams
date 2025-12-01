@@ -157,6 +157,48 @@ export default function ExamPage() {
     }
   };
 
+  // -------------------------------------------
+  // Deletar prova
+  // -------------------------------------------
+  const handleDeleteExam = async () => {
+    if (!classID) return;
+
+    const examId = getExamIdByTitle(selectedExam);
+    if (!examId) return;
+
+    // Confirmação antes de deletar
+    const confirmed = window.confirm(
+      `Tem certeza que deseja deletar a prova "${selectedExam}"? Esta ação não pode ser desfeita.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+
+      await ExamsService.deleteExam(Number(examId), classID);
+
+      setAlertConfig({
+        open: true,
+        message: `Prova "${selectedExam}" deletada com sucesso!`,
+        severity: "success",
+      });
+
+      // Resetar para "Todas as provas" e recarregar
+      setSelectedExam("Todas as provas");
+      await loadAllData();
+    } catch (err) {
+      setAlertConfig({
+        open: true,
+        message:
+          err instanceof Error ? err.message : "Erro ao deletar prova",
+        severity: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // opções do dropdown (somente strings)
   const dropdownOptions = useMemo(() => {
     return ["Todas as provas", ...exams.map((e) => e.title)];
@@ -193,7 +235,21 @@ export default function ExamPage() {
         />
 
         {/* Botão alinhado à direita */}
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: "10px" }}>
+          {/* Botão de deletar - só aparece quando uma prova específica está selecionada */}
+          {selectedExam !== "Todas as provas" && (
+            <CustomButton
+              label="Deletar Prova"
+              onClick={handleDeleteExam}
+              data-testid="delete-exam-button"
+              style={{
+                backgroundColor: "#dc3545",
+                color: "white",
+              }}
+              disabled={loading}
+            />
+          )}
+
           <CustomButton
             label="Criar Prova"
             onClick={() => setPopupOpen(true)}

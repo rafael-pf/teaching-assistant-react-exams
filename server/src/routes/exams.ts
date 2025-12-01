@@ -18,6 +18,9 @@ import {
   shuffleArray,
   getQuestionsByIds,
   QuestionRecord,
+  deleteExam,
+  getExamById,
+  triggerSaveStudentsExams,
 } from "../services/dataService";
 
 const formatDateExtended = (dateString: string) => {
@@ -413,7 +416,12 @@ router.post("/", (req: Request, res: Response) => {
     // Get questions by topic (tema)
     const questionsByTopic = getQuestionsByTopic(tema);
 
-    if (questionsByTopic.length === 0) return res.status(400).json({ error: `No questions for topic: ${tema}` });
+
+    if (questionsByTopic.length === 0) {
+      return res.status(400).json({
+        error: `No questions found for topic: ${tema}`,
+      });
+    }
 
     const openQuestionsAvailable = questionsByTopic.filter(q => q.type === 'open').length;
     const closedQuestionsAvailable = questionsByTopic.filter(q => q.type === 'closed').length;
@@ -438,6 +446,80 @@ router.post("/", (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error creating exam:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * DELETE /api/exams/:examId
+ * Delete an exam from a class by its ID
+ * Query parameters:
+ *   - classId: The class ID (required) - validates the exam belongs to this class
+ */
+router.delete("/:examId", (req: Request, res: Response) => {
+  try {
+    const { examId } = req.params;
+    const { classId } = req.query;
+
+    // Validate examId
+    if (!examId) {
+      return res.status(400).json({
+        error: "examId is required",
+      });
+    }
+
+    const examIdNum = parseInt(examId, 10);
+    if (isNaN(examIdNum)) {
+      return res.status(400).json({
+        error: "examId must be a valid number",
+      });
+    }
+
+    // Validate classId
+    if (!classId || typeof classId !== "string") {
+      return res.status(400).json({
+        error: "classId is required and must be a string",
+      });
+    }
+
+    // Check if exam exists
+    const exam = getExamById(examIdNum);
+    if (!exam) {
+      return res.status(404).json({
+        error: `Exam with ID ${examIdNum} not found`,
+      });
+    }
+
+    // Verify the exam belongs to the specified class
+    if (exam.classId !== classId) {
+      return res.status(403).json({
+        error: `Exam ${examIdNum} does not belong to class ${classId}`,
+      });
+    }
+
+    // Delete the exam (this also deletes associated student exams)
+    const deleted = deleteExam(examIdNum);
+
+    if (!deleted) {
+      return res.status(500).json({
+        error: "Failed to delete exam",
+      });
+    }
+
+    // Persist changes to both files
+    triggerSaveExams();
+    triggerSaveStudentsExams();
+
+    res.status(200).json({
+      message: "Exam deleted successfully",
+      examId: examIdNum,
+      classId: classId,
+    });
+  } catch (error) {
+    console.error("Error deleting exam:", error);
+    res.status(500).json({
+      error: "Internal server error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
   }
 });
 

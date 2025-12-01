@@ -41,14 +41,16 @@
       "answers": [
         {
           "questionId": 1,
-          "answer": "2"
+          "answer": "2",
+          "grade": 0
         },
         {
           "questionId": 2,
           "answer": "Oi"
         }
       ],
-      "timestamp": "2025-11-30T20:26:26.488Z"
+      "timestamp": "2025-11-30T20:26:26.488Z",
+      "grade": 0
     },
     {
       "id": 1763335095691.9746,

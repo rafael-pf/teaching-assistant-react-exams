@@ -204,6 +204,8 @@ const loadAllData = useCallback(async () => {
             exam={exams.find((exam) => exam.title === selectedExam)}
             label="Corrigir Fechadas"
             isActive={selectedExam !== "Todas as provas"}
+            selectedExam={selectedExam}
+            onFinished={handleExamSelect}
           />
           <CustomButton
             label="Criar Prova"

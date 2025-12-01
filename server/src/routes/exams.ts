@@ -6,7 +6,7 @@ import {
   triggerSaveExams,
   generateStudentExams,
   getQuestionById,
-  getQuestionsByTopic,
+  getQuestionsByIds,
   examsManager,
   deleteExam,
   getExamById,
@@ -198,27 +198,23 @@ router.post("/:examId/generate", (req: Request, res: Response) => {
  * POST /api/exams
  * Create a new exam
  * Body parameters:
- *   - codigoProva: Exam code/ID (required, must be unique)
  *   - nomeProva: Exam name (required)
  *   - classId: Class ID (required)
- *   - tema: Exam topic/theme (required)
  *   - quantidadeAberta: Number of open questions (required, non-negative integer)
  *   - quantidadeFechada: Number of closed questions (required, non-negative integer)
+ *   - questionIds: Array of question IDs to include in the exam (required)
  */
 router.post("/", (req: Request, res: Response) => {
   try {
     const {
-      codigoProva,
       nomeProva,
       classId,
-      tema,
       quantidadeAberta,
       quantidadeFechada,
+      questionIds,
     } = req.body;
 
     // Validate required fields
-    // codigoProva is no longer required as ID is auto-generated
-
     if (!nomeProva || typeof nomeProva !== "string") {
       return res.status(400).json({
         error: "nomeProva is required and must be a string",
@@ -231,9 +227,10 @@ router.post("/", (req: Request, res: Response) => {
       });
     }
 
-    if (!tema || typeof tema !== "string") {
+    // Validate questionIds is provided
+    if (!questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
       return res.status(400).json({
-        error: "tema is required and must be a string",
+        error: "questionIds is required and must be a non-empty array",
       });
     }
 
@@ -270,33 +267,33 @@ router.post("/", (req: Request, res: Response) => {
     const maxId = allExamsGlobal.reduce((max, exam) => Math.max(max, exam.id), 0);
     const examId = maxId + 1;
 
-    // Get questions by topic (tema)
-    const questionsByTopic = getQuestionsByTopic(tema);
+    // Validate that all provided question IDs exist
+    const questions = getQuestionsByIds(questionIds);
 
-
-    if (questionsByTopic.length === 0) {
+    if (questions.length !== questionIds.length) {
       return res.status(400).json({
-        error: `No questions found for topic: ${tema}`,
+        error: "Some question IDs do not exist",
       });
     }
 
-    // Check if we have enough questions for the required quantities
-    const openQuestionsAvailable = questionsByTopic.filter(q => q.type === 'open').length;
-    const closedQuestionsAvailable = questionsByTopic.filter(q => q.type === 'closed').length;
+    // Count open and closed questions in the provided list
+    const openQuestionsProvided = questions.filter((q: any) => q.type === 'open').length;
+    const closedQuestionsProvided = questions.filter((q: any) => q.type === 'closed').length;
 
-    if (openQuestionsAvailable < quantidadeAberta) {
+    // Validate that the provided questions match the required quantities
+    if (openQuestionsProvided < quantidadeAberta) {
       return res.status(400).json({
-        error: `Not enough open questions for topic "${tema}". Required: ${quantidadeAberta}, Available: ${openQuestionsAvailable}`,
+        error: `Not enough open questions in questionIds. Required: ${quantidadeAberta}, Provided: ${openQuestionsProvided}`,
       });
     }
 
-    if (closedQuestionsAvailable < quantidadeFechada) {
+    if (closedQuestionsProvided < quantidadeFechada) {
       return res.status(400).json({
-        error: `Not enough closed questions for topic "${tema}". Required: ${quantidadeFechada}, Available: ${closedQuestionsAvailable}`,
+        error: `Not enough closed questions in questionIds. Required: ${quantidadeFechada}, Provided: ${closedQuestionsProvided}`,
       });
     }
 
-    // Create new exam object with questions from the topic
+    // Create new exam object
     const newExam = {
       id: examId,
       classId: classId,
@@ -304,7 +301,7 @@ router.post("/", (req: Request, res: Response) => {
       isValid: true,
       openQuestions: quantidadeAberta,
       closedQuestions: quantidadeFechada,
-      questions: questionsByTopic.map(q => q.id), // All question IDs from this topic
+      questions: questionIds,
     };
 
     // Add exam to the system

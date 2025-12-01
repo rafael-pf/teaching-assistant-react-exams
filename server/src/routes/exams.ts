@@ -80,6 +80,7 @@ router.get("/students", (req: Request, res: Response) => {
 
       // Return table row format
       return {
+        cpf: studentData.studentCPF,
         studentName: studentData.studentName,
         examID: studentData.examId,
         qtdAberta: examDef.openQuestions,

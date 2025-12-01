@@ -1,16 +1,9 @@
 import fs from "fs";
 import path from "path";
 
-type Option = {
-  id: number;
-  option: string;
-  isCorrect: boolean;
-};
-
 type Question = {
   id: number;
   type: "open" | "closed";
-  options?: Option[];
 };
 
 type Exam = {
@@ -24,16 +17,25 @@ type Answer = {
   grade?: number;
 };
 
-type StudentExam = {
+type ResponseItem = {
   id: number;
   studentCPF: string;
   examId: number;
   answers: Answer[];
 };
 
+type StudentExam = {
+  id: number;
+  studentCPF: string;
+  examId: number;
+  answers: Answer[]; // existing stored answers (do NOT overwrite whole array)
+  grade?: number;
+};
+
 export class Correction {
   private static examsPath = path.join(__dirname, "../../data/exams.json");
   private static questionsPath = path.join(__dirname, "../../data/questions.json");
+  private static responsesPath = path.join(__dirname, "../../data/response.json");
   private static studentsExamsPath = path.join(__dirname, "../../data/students-exams.json");
 
   private static loadJson(filePath: string) {
@@ -45,59 +47,60 @@ export class Correction {
   }
 
   static correctExam(studentCPF: string, examId: number) {
-    const examsData = this.loadJson(this.examsPath);
-    const questionsData = this.loadJson(this.questionsPath);
-    const studentsExamsData = this.loadJson(this.studentsExamsPath);
+  const examsData = this.loadJson(this.examsPath);
+  const questionsData = this.loadJson(this.questionsPath);
+  const responsesData = this.loadJson(this.responsesPath);
+  const studentsExamsData = this.loadJson(this.studentsExamsPath);
 
-    const exam: Exam = examsData.exams.find((e: Exam) => e.id === examId);
-    if (!exam) throw new Error("Exam not found");
+  const exam: Exam = examsData.exams.find((e: Exam) => e.id === examId);
+  if (!exam) throw new Error("Exam not found");
 
-    const studentExam: StudentExam =
-      studentsExamsData.studentsExams.find(
-        (se: StudentExam) => se.studentCPF === studentCPF && se.examId === examId
-      );
-    if (!studentExam) throw new Error("Student exam not found");
+  const answerKey: ResponseItem = responsesData.responses
+    .find((r: ResponseItem) => r.examId === examId && r.studentCPF === studentCPF);
 
-    const closedQuestions: Question[] = exam.questions
-      .map((qid) => questionsData.questions.find((q: Question) => q.id === qid))
-      .filter((q: Question) => q.type === "closed");
+  if (!answerKey) throw new Error("Answer key not found for this exam");
 
-    const totalClosed = closedQuestions.length;
-    let correctCount = 0;
+  const studentExam: StudentExam = studentsExamsData.studentsExams.find(
+    (se: StudentExam) => se.studentCPF === studentCPF && se.examId === examId
+  );
 
-    closedQuestions.forEach((question) => {
-      const studentAnswer = studentExam.answers.find(
-        (a) => a.questionId === question.id
-      );
+  if (!studentExam) throw new Error("Student exam not found");
 
-      if (!studentAnswer) return;
+  const closedStudentAnswers = studentExam.answers.filter((a) => {
+    const question = questionsData.questions.find((q: Question) => q.id === a.questionId);
+    return question && question.type === "closed";
+  });
 
-      const correctOption = question.options?.find((o) => o.isCorrect);
+  const totalClosed = closedStudentAnswers.length;
+  let correctCount = 0;
 
-      if (studentAnswer.answer.trim() === correctOption?.option.trim()) {
-        studentAnswer.grade = 1;
-        correctCount++;
-      } else {
-        studentAnswer.grade = 0;
-      }
-    });
+  closedStudentAnswers.forEach((answer) => {
+    const studentAnswer = answer;
 
-    // Calcula nota final (0-10)
-    const finalGrade = totalClosed > 0 ? (correctCount / totalClosed) * 10 : 0;
+    const keyAnswer = answerKey.answers.find(
+      (a) => a.questionId === answer.questionId
+    );
 
-    // 👉 grava nota final no StudentExam
-    (studentExam as any).grades = finalGrade;
+    if (studentAnswer && keyAnswer &&
+        studentAnswer.answer.trim() === keyAnswer.answer.trim()) {
+      correctCount++;
+    }
+  });
 
-    // Salva alterações
-    this.saveJson(this.studentsExamsPath, studentsExamsData);
+  const finalGrade = totalClosed > 0 ? (correctCount / totalClosed) * 10 : 0;
 
-    return {
-      studentCPF,
-      examId,
-      correctCount,
-      totalClosed,
-      finalGrade,
-    };
+  studentExam.grade = finalGrade;
+
+  this.saveJson(this.studentsExamsPath, studentsExamsData);
+
+  return {
+    studentCPF,
+    examId,
+    correctCount,
+    totalClosed,
+    finalGrade,
+  };
 }
+
 
 }

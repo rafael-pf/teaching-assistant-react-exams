@@ -66,7 +66,6 @@ const loadAllData = useCallback(async () => {
       ExamsService.getStudentsWithExamsForClass(classID),
     ]);
 
-    console.log("Students Response:", studentsResponse);
     setExams(examsResponse.data || []);
     setStudents(studentsResponse.data || []);
     setRows(studentsResponse.data || []);
@@ -203,7 +202,7 @@ const loadAllData = useCallback(async () => {
           <CorrectionButton
             students={students}
             exam={exams.find((exam) => exam.title === selectedExam)}
-            label="Corrigir"
+            label="Corrigir Fechadas"
             isActive={selectedExam !== "Todas as provas"}
           />
           <CustomButton

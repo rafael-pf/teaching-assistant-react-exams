@@ -53,6 +53,7 @@ describe('Service Tests: Exam Generation Routes (Robust)', () => {
         jest.clearAllMocks();
         (dataService.getExamsForClass as jest.Mock).mockReturnValue([mockExam]);
         (dataService.addExamGeneration as jest.Mock).mockImplementation(() => {});
+        (dataService.shuffleArray as jest.Mock).mockImplementation((arr) => arr);
         Object.defineProperty(dataService, 'questions', { get: () => mockQuestions, configurable: true });
     });
 

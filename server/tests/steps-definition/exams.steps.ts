@@ -28,6 +28,7 @@ defineFeature(feature, (test) => {
           questions: [1, 2]
         }
       ]);
+      (dataService.shuffleArray as jest.Mock).mockImplementation((arr) => arr);
       Object.defineProperty(dataService, 'questions', { get: () => mockQuestions, configurable: true });
       
       (dataService.addExamGeneration as jest.Mock).mockImplementation(() => {});

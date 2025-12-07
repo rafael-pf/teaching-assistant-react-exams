@@ -24,6 +24,8 @@ describe('Integration Test: Exam ZIP Flow', () => {
 
     beforeAll(() => {
         (dataService.getExamsForClass as jest.Mock).mockReturnValue([mockExam]);
+
+        (dataService.shuffleArray as jest.Mock).mockImplementation((arr) => arr);
         
         Object.defineProperty(dataService, 'questions', { get: () => [mockQuestion], configurable: true });
         

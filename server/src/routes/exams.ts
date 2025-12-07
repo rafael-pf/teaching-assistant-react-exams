@@ -285,6 +285,42 @@ const handleGetGenerations = (req: Request, res: Response) => {
   res.json(generations);
 };
 
+const handleGetDataVersion = (req: Request, res: Response) => {
+  const { id, versionNumber } = req.params;
+  const { classId } = req.query;
+
+  if (!classId) return res.status(400).json({ error: 'classId required' });
+
+  const examIdNum = parseInt(id, 10);
+  const versionNum = parseInt(versionNumber, 10);
+
+  if (isNaN(examIdNum) || isNaN(versionNum)) {
+    return res.status(400).json({ error: 'Invalid ID or version number' });
+  }
+
+  const generations = getGenerationsForExam(examIdNum, classId as string);
+
+  if (generations.length === 0) {
+    return res.status(404).json({ error: 'No generations found for this exam' });
+  }
+
+  // Sort by timestamp descending (newest first)
+  generations.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const latestGeneration = generations[0];
+
+  const versionData = latestGeneration.versions.find(v => v.versionNumber === versionNum);
+
+  if (!versionData) {
+    return res.status(404).json({ error: 'Version not found in the latest generation' });
+  }
+
+  res.json({
+    versionNumber: versionData.versionNumber,
+    questions: versionData.questions
+  });
+};
+
 router.get("/students", (req: Request, res: Response) => {
   try {
     const { classId, examId } = req.query;
@@ -386,6 +422,7 @@ router.post("/:examId/generate", (req: Request, res: Response) => {
 
 router.get('/:id/zip', handleGetExamZIP);
 router.get('/:id/generations', handleGetGenerations);
+router.get('/:id/versions/:versionNumber', handleGetDataVersion);
 
 /**
  * POST /api/exams

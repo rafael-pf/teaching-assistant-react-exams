@@ -1,3 +1,5 @@
+const ts = require("typescript");
+
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
@@ -6,9 +8,8 @@ module.exports = {
   
   transform: {
     '^.+\\.ts$': ['ts-jest', {
-      tsconfig: {
-        esModuleInterop: true,
-      }
+      tsconfig: 'tsconfig.test.json',
+      esModuleInterop: true
     }]
   }
 };

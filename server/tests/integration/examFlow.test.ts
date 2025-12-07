@@ -1,8 +1,8 @@
 import request from 'supertest';
-import app from '../../server/src/server';
-import * as dataService from '../../server/src/services/dataService';
+import app from '../../src/server';
+import * as dataService from '../../src/services/dataService';
 
-jest.mock('../../server/src/services/dataService');
+jest.mock('../../src/services/dataService');
 
 describe('Integration Test: Exam ZIP Flow', () => {
     

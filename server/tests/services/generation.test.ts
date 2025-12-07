@@ -3,7 +3,7 @@ import {
   addExamGeneration, 
   examGenerations, 
   ExamGenerationRecord 
-} from '../../server/src/services/dataService';
+} from '../../src/services/dataService';
 
 describe('Unit Test: Exam Generation History', () => {
     

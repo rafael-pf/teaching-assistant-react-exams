@@ -1,5 +1,3 @@
-// client/src/components/GeneratePdfDialog/index.tsx
-
 import React, { useState, useEffect } from 'react';
 import { Typography, TextField } from '@mui/material';
 import { SharedDialog } from './SharedDialog';
@@ -22,12 +20,14 @@ export const GeneratePDFButton: React.FC<GeneratePDFButtonProps> = ({
 }) => {
   
   const [quantity, setQuantity] = useState(defaultQuantity);
+  const [examDate, setExamDate] = useState(new Date().toISOString().split('T')[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setQuantity(defaultQuantity > 0 ? defaultQuantity : 1);
+      setExamDate(new Date().toISOString().split('T')[0]);
       setIsLoading(false);
       setErrorMessage(null);
     }
@@ -50,7 +50,7 @@ export const GeneratePDFButton: React.FC<GeneratePDFButtonProps> = ({
     try {
       console.log(`Baixando lote: ExamID=${examId}, Qtd=${quantity}, ClassID=${classId}`);
       
-      await ExamsService.downloadExamsZIP(examId, quantity, classId);
+      await ExamsService.downloadExamsZIP(examId, quantity, classId, examDate);
       
       onClose();
 
@@ -72,7 +72,7 @@ export const GeneratePDFButton: React.FC<GeneratePDFButtonProps> = ({
       cancelText="Cancelar"
     >
       <Typography gutterBottom>
-        Quantas versões diferentes você deseja gerar?
+        Configure os detalhes para a geração dos arquivos:
       </Typography>
       
       <TextField
@@ -85,6 +85,19 @@ export const GeneratePDFButton: React.FC<GeneratePDFButtonProps> = ({
         value={quantity}
         onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 0)}
         InputProps={{ inputProps: { min: 1 } }}
+      />
+
+      <TextField
+        margin="dense"
+        label="Data da Aplicação"
+        type="date"
+        fullWidth
+        variant="outlined"
+        value={examDate}
+        onChange={(e) => setExamDate(e.target.value)}
+        InputLabelProps={{
+          shrink: true,
+        }}
       />
 
       <Typography variant="caption" color="textSecondary" style={{marginTop: 10, display: 'block'}}>

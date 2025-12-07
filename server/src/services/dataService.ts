@@ -4,6 +4,12 @@ import { Student } from '../models/Student';
 import { Class } from '../models/Class';
 import { Evaluation } from '../models/Evaluation';
 import { Exams, ExamRecord, StudentExamRecord } from '../models/Exams';
+import {
+  Questions,
+  QuestionRecord,
+  CreateQuestionInput,
+  UpdateQuestionInput,
+} from '../models/Questions';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -46,7 +52,7 @@ export interface ExamGenerationRecord {
 export const studentSet = new StudentSet();
 export const classes = new Classes();
 export const examsManager = new Exams();
-export const questions: Question[] = [];
+export const questionsManager = new Questions();
 export const examGenerations: ExamGenerationRecord[] = [];
 
 // File paths
@@ -103,9 +109,7 @@ export const saveExamsToFile = (): void => {
 
 export const saveQuestionsToFile = (): void => {
   try {
-    const data = {
-      questions: questions
-    };
+    const data = questionsManager.toJSON();
     
     ensureDataDirectory(questionsFile);
     fs.writeFileSync(questionsFile, JSON.stringify(data, null, 2), 'utf8');
@@ -211,11 +215,9 @@ export const loadQuestionsFromFile = (): void => {
     if (fs.existsSync(questionsFile)) {
       const fileContent = fs.readFileSync(questionsFile, 'utf-8');
       const data = JSON.parse(fileContent);
-      
-      if (data.questions && Array.isArray(data.questions)) {
-        questions.length = 0; // Clear existing questions
-        questions.push(...data.questions);
-      }
+
+      const loaded = Questions.fromJSON(data);
+      questionsManager.replaceAll(loaded.getAllQuestions());
     }
   } catch (error) {
     console.error('Error loading questions from file:', error);
@@ -388,9 +390,7 @@ export const generateStudentExams = (examId: number, classId: string): StudentEx
     const generatedExams: StudentExamRecord[] = [];
 
     // Get available questions
-    const availableQuestions = questions.filter(q => 
-      exam.questions.includes(q.id)
-    );
+    const availableQuestions = questionsManager.getQuestionsByIds(exam.questions);
 
     if (availableQuestions.length === 0) {
       throw new Error(`No questions found for exam ${examId}`);
@@ -463,6 +463,86 @@ export const generateStudentExams = (examId: number, classId: string): StudentEx
   }
 };
 
+// Question helpers
+export const getAllQuestions = (): QuestionRecord[] => {
+  return questionsManager.getAllQuestions();
+};
+
+export const getQuestionById = (questionId: number): QuestionRecord | undefined => {
+  return questionsManager.getQuestionById(questionId);
+};
+
+export const getQuestionsByTopic = (topic: string): QuestionRecord[] => {
+  return questionsManager.getQuestionsByTopic(topic);
+};
+
+export const getQuestionsByIds = (ids: number[]): QuestionRecord[] => {
+  return questionsManager.getQuestionsByIds(ids);
+};
+
+export const createQuestion = (input: CreateQuestionInput): QuestionRecord => {
+  const question = questionsManager.addQuestion(input);
+  triggerSaveQuestions();
+  return question;
+};
+
+export const updateQuestion = (id: number, input: UpdateQuestionInput): QuestionRecord | undefined => {
+  const updated = questionsManager.updateQuestion(id, input);
+  if (updated) {
+    triggerSaveQuestions();
+  }
+  return updated;
+};
+
+export const deleteQuestion = (id: number): boolean => {
+  const removed = questionsManager.deleteQuestion(id);
+  if (removed) {
+    triggerSaveQuestions();
+  }
+  return removed;
+};
+
+export type { QuestionRecord, QuestionOptionRecord } from '../models/Questions';
+
+// Question helpers
+export const getAllQuestions = (): QuestionRecord[] => {
+  return questionsManager.getAllQuestions();
+};
+
+export const getQuestionById = (questionId: number): QuestionRecord | undefined => {
+  return questionsManager.getQuestionById(questionId);
+};
+
+export const getQuestionsByTopic = (topic: string): QuestionRecord[] => {
+  return questionsManager.getQuestionsByTopic(topic);
+};
+
+export const getQuestionsByIds = (ids: number[]): QuestionRecord[] => {
+  return questionsManager.getQuestionsByIds(ids);
+};
+
+export const createQuestion = (input: CreateQuestionInput): QuestionRecord => {
+  const question = questionsManager.addQuestion(input);
+  triggerSaveQuestions();
+  return question;
+};
+
+export const updateQuestion = (id: number, input: UpdateQuestionInput): QuestionRecord | undefined => {
+  const updated = questionsManager.updateQuestion(id, input);
+  if (updated) {
+    triggerSaveQuestions();
+  }
+  return updated;
+};
+
+export const deleteQuestion = (id: number): boolean => {
+  const removed = questionsManager.deleteQuestion(id);
+  if (removed) {
+    triggerSaveQuestions();
+  }
+  return removed;
+};
+
 export function shuffleArray<T>(array: T[]): T[] {
     if (!Array.isArray(array) || array.length <= 1) {
         return array;
@@ -476,3 +556,4 @@ export function shuffleArray<T>(array: T[]): T[] {
     return newArray;
 }
 
+export type { QuestionRecord, QuestionOptionRecord } from '../models/Questions';

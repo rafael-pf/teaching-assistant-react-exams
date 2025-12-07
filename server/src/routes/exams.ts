@@ -9,7 +9,8 @@ import {
   addExam,
   triggerSaveExams,
   generateStudentExams,
-  questions,
+  getQuestionById,
+  getQuestionsByTopic,
   addExamGeneration,
   getGenerationsForExam,
   ExamGenerationRecord,
@@ -320,7 +321,7 @@ router.get("/students", (req: Request, res: Response) => {
 
       const examQuestions = studentData.answers
         .map((a: { questionId: number; answer: any; }) => {
-          const q = questions.find((q) => q.id === a.questionId); // Aqui usa 'questions'
+          const q = getQuestionById(a.questionId);
           if (!q) return null;
           return {
             idQuestion: q.id,
@@ -415,7 +416,8 @@ router.post("/", (req: Request, res: Response) => {
 
     const examId = parseInt(codigoProva, 10) || Date.now();
 
-    const questionsByTopic = questions.filter(q => q.topic === tema);
+    // Get questions by topic (tema)
+    const questionsByTopic = getQuestionsByTopic(tema);
     
     if (questionsByTopic.length === 0) return res.status(400).json({ error: `No questions for topic: ${tema}` });
 

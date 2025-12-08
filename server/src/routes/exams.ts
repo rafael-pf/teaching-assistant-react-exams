@@ -21,6 +21,7 @@ import {
   deleteExam,
   getExamById,
   triggerSaveStudentsExams,
+  getNextGenerationId,
 } from "../services/dataService";
 
 const formatDateExtended = (dateString: string) => {
@@ -190,7 +191,7 @@ const handleGetExamZIP = async (req: Request, res: Response) => {
     const formattedDate = formatDateExtended(date as string);
 
     const timestamp = new Date();
-    const generationId = `${examIdNum}-${timestamp.getTime()}`;
+    const generationId = getNextGenerationId();
 
     const newGenerationRecord: ExamGenerationRecord = {
       id: generationId,

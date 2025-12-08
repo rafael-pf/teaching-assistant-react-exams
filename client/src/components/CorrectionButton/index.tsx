@@ -5,11 +5,11 @@ import CustomButton from "../CustomButton";
 import Alert from "../Alert";
 
 interface CorrectionButtonProps {
-    students: any[];
-    exam: any;
+    students?: any[];
+    exam?: any;
     label: string;
-    isActive: boolean;
-    selectedExam: string;
+    isActive?: boolean;
+    selectedExam?: string;
     className?: string;
     onFinished: (data: any) => Promise<void>;
 }

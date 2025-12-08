@@ -194,9 +194,7 @@ export const loadExamsFromFile = (): void => {
       const data = JSON.parse(fileContent);
 
       if (data.exams && Array.isArray(data.exams)) {
-        data.exams.forEach((exam: ExamRecord) => {
-          examsManager.addExam(exam);
-        });
+        examsManager.replaceAll(data.exams);
       }
     }
   } catch (error) {
@@ -300,6 +298,10 @@ export const getExamById = (examId: number): ExamRecord | undefined => {
 
 export const addExam = (exam: ExamRecord): void => {
   examsManager.addExam(exam);
+};
+
+export const getNextExamId = (): number => {
+  return examsManager.getNextExamId();
 };
 
 export const updateExam = (examId: number, updatedExam: Partial<ExamRecord>): boolean => {

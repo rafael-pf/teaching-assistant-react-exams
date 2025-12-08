@@ -53,7 +53,7 @@ export default function ExamPage() {
     setAlertConfig((prev) => ({ ...prev, open: false }));
   };
 
-  const transformGenerationsToRows = async (generations: any[], examIdFilter?: number) => {
+  const transformGenerationsToRows = async (generations: any[], examsData: any[], examIdFilter?: number) => {
     const rows: any[] = [];
 
     for (const gen of generations) {
@@ -65,7 +65,7 @@ export default function ExamPage() {
       let numOpen = 0;
       let numClosed = 0;
       try {
-        const examData = exams.find(e => e.id === gen.examId);
+        const examData = examsData.find(e => e.id === gen.examId);
         if (examData) {
           numOpen = examData.openQuestions || 0;
           numClosed = examData.closedQuestions || 0;
@@ -135,7 +135,7 @@ export default function ExamPage() {
         }
       }
 
-      const transformedRows = await transformGenerationsToRows(allGenerations);
+      const transformedRows = await transformGenerationsToRows(allGenerations, examsResponse.data || []);
       setRows(transformedRows);
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
@@ -173,7 +173,7 @@ export default function ExamPage() {
 
       // Fetch generations for the specific exam
       const gens = await ExamsService.getGenerations(Number(examId), classID);
-      const transformedRows = await transformGenerationsToRows(gens, Number(examId));
+      const transformedRows = await transformGenerationsToRows(gens, exams, Number(examId));
       setRows(transformedRows);
     } catch (error) {
       console.error("Erro ao filtrar:", error);

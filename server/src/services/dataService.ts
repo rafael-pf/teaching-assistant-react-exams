@@ -213,6 +213,9 @@ export const loadExamsFromFile = (): void => {
         data.exams.forEach((exam: ExamRecord) => {
           examsManager.addExam(exam);
         });
+        console.log(`Loaded ${data.exams.length} exams from ${examsFile}`);
+      } else {
+        console.log(`No exams found in ${examsFile}`);
       }
     }
   } catch (error) {
@@ -227,7 +230,12 @@ export const loadQuestionsFromFile = (): void => {
       const data = JSON.parse(fileContent);
 
       const loaded = Questions.fromJSON(data);
-      questionsManager.replaceAll(loaded.getAllQuestions());
+      const all = loaded.getAllQuestions();
+      questionsManager.replaceAll(all);
+
+      // Keep exported `questions` array in sync for routes/components that use it
+      questions.length = 0;
+      questions.push(...all);
     }
   } catch (error) {
     console.error('Error loading questions from file:', error);

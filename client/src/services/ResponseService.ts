@@ -1,5 +1,6 @@
 class ResponseService {
-  private readonly baseUrl = 'http://localhost:3005/api/v1/exams';
+  // Use the same base API as the rest of the client (`/api/exams`)
+  private readonly baseUrl = 'http://localhost:3005/api/exams';
 
   async getQuestions(examId: string | number): Promise<any[]> {
     const res = await fetch(`${this.baseUrl}/${encodeURIComponent(String(examId))}/questions`);

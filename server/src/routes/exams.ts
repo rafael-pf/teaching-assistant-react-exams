@@ -23,6 +23,7 @@ import {
   triggerSaveStudentsExams,
   cleanCPF,
   addStudentExam,
+  questions,
 } from "../services/dataService";
 
 const formatDateExtended = (dateString: string) => {

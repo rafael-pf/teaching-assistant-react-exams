@@ -28,7 +28,7 @@ type ResponseItem = {
   id: number;
   studentCPF: string;
   examId: number;
-  grade?: number;
+  grade_closed?: number;
   answers: Answer[];
 };
 
@@ -90,7 +90,7 @@ export class Correction {
     
     const finalGrade = totalQuestions > 0 ? (gradeSum / totalQuestions) : 0;
 
-    response.grade = finalGrade;
+    response.grade_closed = finalGrade;
 
     this.saveJson(this.responsesPath, responsesData);
 
@@ -107,11 +107,11 @@ export class Correction {
     const response: ResponseItem = responsesData.responses
       .find((r: ResponseItem) => r.examId === examId && r.studentCPF === studentCPF);
 
-    if (!response || response.grade === undefined) {
+    if (!response || response.grade_closed === undefined) {
       return null;
     }
 
-    return response.grade;
+    return response.grade_closed;
   }
 
 }

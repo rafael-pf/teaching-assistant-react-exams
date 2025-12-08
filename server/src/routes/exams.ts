@@ -91,7 +91,7 @@ router.get("/students", (req: Request, res: Response) => {
         examID: studentData.examId,
         qtdAberta: examDef.openQuestions,
         qtdFechada: examDef.closedQuestions,
-        grade: finalGrade !== null ? finalGrade : "Não corrigido",
+        grade_closed: finalGrade !== null ? finalGrade : "Não corrigido",
         ativo: "Sim",
         details: examQuestions,
       };

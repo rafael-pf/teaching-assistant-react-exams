@@ -17,7 +17,7 @@ const columns: Column[] = [
   { id: "qtdAberta", label: "Quantidade Aberta", align: "right" },
   { id: "qtdFechada", label: "Quantidade Fechada", align: "right" },
   { id: "ativo", label: "Ativo", align: "right" },
-  { id: "grade", label: "Nota", align: "right" },
+  { id: "grade_closed", label: "Nota fechadas", align: "right" },
 ];
 
 const detailColumns: DetailColumn[] = [

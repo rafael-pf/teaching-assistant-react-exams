@@ -254,6 +254,22 @@ class ExamsService {
       throw error;
     }
   }
+
+  public static async getGenerations(examId: number, classId: string): Promise<any> {
+    const response = await fetch(`${ExamsService.apiUrl}/exams/${examId}/generations?classId=${encodeURIComponent(classId)}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to fetch generations");
+    }
+
+    return response.json();
+  }
 }
 
 export default ExamsService;

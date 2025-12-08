@@ -481,10 +481,18 @@ router.post('/:examId/responses', (req: Request, res: Response) => {
       answers,
     };
 
-    addStudentExam(studentExam as any);
-    triggerSaveStudentsExams();
+    try {
+      addStudentExam(studentExam as any);
+      triggerSaveStudentsExams();
 
-    return res.status(201).json({ message: 'Response submitted successfully', data: studentExam });
+      return res.status(201).json({ message: 'Response submitted successfully', data: studentExam });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'StudentAlreadySubmitted') {
+        return res.status(409).json({ message: 'Você já respondeu essa prova' });
+      }
+      console.error('Error submitting responses:', err);
+      return res.status(500).json({ error: 'Failed to submit responses' });
+    }
   } catch (error) {
     res.status(500).json({ error: 'Failed to submit responses' });
   }

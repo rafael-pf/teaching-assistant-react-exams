@@ -330,9 +330,34 @@ export const deleteExam = (examId: number): boolean => {
 };
 
 export const addStudentExam = (studentExam: StudentExamRecord): void => {
-  examsManager.addStudentExam(studentExam);
+  // Prevent a student from submitting more than once for the same exam
   try {
-    // store a simplified response record in responses.json
+    const studentCPF = cleanCPF(String(studentExam.studentCPF));
+
+    const alreadyInResponses = responses.some(r => {
+      try {
+        return cleanCPF(String(r.studentCPF)) === studentCPF && r.examId === studentExam.examId;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    const allStudentExams = examsManager.getAllStudentExams ? examsManager.getAllStudentExams() : [];
+    const alreadyInManager = allStudentExams.some((se: any) => {
+      try {
+        return cleanCPF(String(se.studentCPF)) === studentCPF && se.examId === studentExam.examId;
+      } catch (e) {
+        return false;
+      }
+    });
+
+    if (alreadyInResponses || alreadyInManager) {
+      throw new Error('StudentAlreadySubmitted');
+    }
+
+    // Add to exams manager and persist a simplified responses record
+    examsManager.addStudentExam(studentExam);
+
     responses.push({
       id: studentExam.id,
       studentCPF: studentExam.studentCPF,
@@ -342,7 +367,11 @@ export const addStudentExam = (studentExam: StudentExamRecord): void => {
     });
     triggerSaveResponses();
   } catch (error) {
+    if ((error as Error).message === 'StudentAlreadySubmitted') {
+      throw error; // rethrow so callers can handle and return 409
+    }
     console.error('Error adding student exam to responses:', error);
+    throw error;
   }
 };
 

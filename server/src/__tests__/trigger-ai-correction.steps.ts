@@ -2,11 +2,9 @@ import { defineFeature, loadFeature } from 'jest-cucumber';
 import request, { Response } from 'supertest';
 import express, { Express } from 'express';
 import { createTestApp } from './helpers/test-app';
-import { examSet, studentExamSet, questionSet } from '../services/dataService';
-import { Exam } from '../models/Exam';
-import { StudentExam } from '../models/StudentExam';
-import { Question } from '../models/Question';
-import { StudentAnswer } from '../models/StudentAnswer';
+import { examsManager, questionsManager } from '../services/dataService';
+import { ExamRecord, StudentExamRecord } from '../models/Exams';
+import { CreateQuestionInput } from '../models/Questions';
 import { AIModel } from '../types/AIModel';
 import * as qstashServiceModule from '../services/qstashService';
 
@@ -29,9 +27,16 @@ defineFeature(feature, (test) => {
     app = createTestApp();
     
     // Limpa dados de teste
-    examSet.getAllExams().forEach(exam => examSet.removeExam(exam.getId()));
-    studentExamSet.getAllStudentExams().forEach(se => studentExamSet.removeStudentExam(se.getId()));
-    questionSet.getAllQuestions().forEach(q => questionSet.removeQuestion(q.getId()));
+    examsManager.replaceAll([]);
+    questionsManager.replaceAll([]);
+    // Limpa student exams também
+    const allStudentExams = examsManager.getAllStudentExams();
+    allStudentExams.forEach(se => {
+      const exam = examsManager.getExamById(se.examId);
+      if (exam) {
+        examsManager.deleteExam(exam.id);
+      }
+    });
 
     // Configura mock padrão do QStash
     mockedQStashService.isConfigured.mockReturnValue(true);
@@ -51,21 +56,48 @@ defineFeature(feature, (test) => {
 
     and(/^existem exames de estudantes para a classe "(.*)"$/, (classId: string) => {
       // Cria questões
-      const question1 = new Question(1, 'Explique arquitetura de software', 'Arquitetura', 'open', undefined, 'Arquitetura é...');
-      const question2 = new Question(2, 'Descreva SOLID', 'Princípios', 'open', undefined, 'SOLID são...');
-      questionSet.addQuestion(question1);
-      questionSet.addQuestion(question2);
+      const question1: CreateQuestionInput = {
+        question: 'Explique arquitetura de software',
+        topic: 'Arquitetura',
+        type: 'open',
+        answer: 'Arquitetura é...'
+      };
+      const question2: CreateQuestionInput = {
+        question: 'Descreva SOLID',
+        topic: 'Princípios',
+        type: 'open',
+        answer: 'SOLID são...'
+      };
+      const q1 = questionsManager.addQuestion(question1);
+      const q2 = questionsManager.addQuestion(question2);
+      
+      // Override IDs para manter consistência
+      (q1 as any).id = 1;
+      (q2 as any).id = 2;
 
       // Cria exame
-      const exam = new Exam(1, classId, 'Prova de Arquitetura', true, 2, 0, [1, 2]);
-      examSet.addExam(exam);
+      const exam: ExamRecord = {
+        id: 1,
+        classId: classId,
+        title: 'Prova de Arquitetura',
+        isValid: true,
+        openQuestions: 2,
+        closedQuestions: 0,
+        questions: [1, 2]
+      };
+      examsManager.addExam(exam);
 
       // Cria StudentExam
-      const studentExam = new StudentExam(1, '12345678900', 1, [
-        new StudentAnswer(1, 'Arquitetura define estrutura', 0),
-        new StudentAnswer(2, 'SOLID são princípios', 0),
-      ]);
-      studentExamSet.addStudentExam(studentExam);
+      const studentExam: StudentExamRecord = {
+        id: 1,
+        studentCPF: '12345678900',
+        examId: 1,
+        answers: [
+          { questionId: 1, answer: 'Arquitetura define estrutura' },
+          { questionId: 2, answer: 'SOLID são princípios' }
+        ]
+      };
+      examsManager.addStudentExam(studentExam);
     });
 
     and(/^os exames possuem questões abertas com respostas dos estudantes$/, () => {
@@ -215,14 +247,35 @@ defineFeature(feature, (test) => {
     });
 
     and(/^existem exames de estudantes para a classe "(.*)"$/, (classId: string) => {
-      const question1 = new Question(10, 'Questão 1', 'Tópico 1', 'open', undefined, 'Resposta 1');
-      questionSet.addQuestion(question1);
-      const exam = new Exam(10, classId, 'Prova Teste', true, 1, 0, [10]);
-      examSet.addExam(exam);
-      const studentExam = new StudentExam(10, '11111111111', 10, [
-        new StudentAnswer(10, 'Resposta aluno', 0),
-      ]);
-      studentExamSet.addStudentExam(studentExam);
+      const question1: CreateQuestionInput = {
+        question: 'Questão 1',
+        topic: 'Tópico 1',
+        type: 'open',
+        answer: 'Resposta 1'
+      };
+      const q1 = questionsManager.addQuestion(question1);
+      (q1 as any).id = 10;
+      
+      const exam: ExamRecord = {
+        id: 10,
+        classId: classId,
+        title: 'Prova Teste',
+        isValid: true,
+        openQuestions: 1,
+        closedQuestions: 0,
+        questions: [10]
+      };
+      examsManager.addExam(exam);
+      
+      const studentExam: StudentExamRecord = {
+        id: 10,
+        studentCPF: '11111111111',
+        examId: 10,
+        answers: [
+          { questionId: 10, answer: 'Resposta aluno' }
+        ]
+      };
+      examsManager.addStudentExam(studentExam);
     });
 
     and(/^os exames possuem questões abertas com respostas dos estudantes$/, () => {
@@ -259,10 +312,24 @@ defineFeature(feature, (test) => {
 
     and(/^existem exames de estudantes para a classe "(.*)"$/, (classId: string) => {
       // Cria exame mas sem questões abertas ou sem respostas
-      const exam = new Exam(20, classId, 'Prova Sem Questões Abertas', true, 0, 0, []);
-      examSet.addExam(exam);
-      const studentExam = new StudentExam(20, '22222222222', 20, []);
-      studentExamSet.addStudentExam(studentExam);
+      const exam: ExamRecord = {
+        id: 20,
+        classId: classId,
+        title: 'Prova Sem Questões Abertas',
+        isValid: true,
+        openQuestions: 0,
+        closedQuestions: 0,
+        questions: []
+      };
+      examsManager.addExam(exam);
+      
+      const studentExam: StudentExamRecord = {
+        id: 20,
+        studentCPF: '22222222222',
+        examId: 20,
+        answers: []
+      };
+      examsManager.addStudentExam(studentExam);
     });
 
     and(/^os exames não possuem questões abertas ou as questões abertas não possuem respostas dos estudantes$/, () => {
@@ -300,14 +367,35 @@ defineFeature(feature, (test) => {
     });
 
     and(/^existem exames de estudantes para a classe "(.*)"$/, (classId: string) => {
-      const question1 = new Question(30, 'Questão 1', 'Tópico 1', 'open', undefined, 'Resposta 1');
-      questionSet.addQuestion(question1);
-      const exam = new Exam(30, classId, 'Prova Teste', true, 1, 0, [30]);
-      examSet.addExam(exam);
-      const studentExam = new StudentExam(30, '33333333333', 30, [
-        new StudentAnswer(30, 'Resposta aluno', 0),
-      ]);
-      studentExamSet.addStudentExam(studentExam);
+      const question1: CreateQuestionInput = {
+        question: 'Questão 1',
+        topic: 'Tópico 1',
+        type: 'open',
+        answer: 'Resposta 1'
+      };
+      const q1 = questionsManager.addQuestion(question1);
+      (q1 as any).id = 30;
+      
+      const exam: ExamRecord = {
+        id: 30,
+        classId: classId,
+        title: 'Prova Teste',
+        isValid: true,
+        openQuestions: 1,
+        closedQuestions: 0,
+        questions: [30]
+      };
+      examsManager.addExam(exam);
+      
+      const studentExam: StudentExamRecord = {
+        id: 30,
+        studentCPF: '33333333333',
+        examId: 30,
+        answers: [
+          { questionId: 30, answer: 'Resposta aluno' }
+        ]
+      };
+      examsManager.addStudentExam(studentExam);
     });
 
     and(/^os exames possuem questões abertas com respostas dos estudantes$/, () => {

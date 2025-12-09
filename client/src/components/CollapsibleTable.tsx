@@ -16,6 +16,7 @@ import {
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import CorrectionButton from "./CorrectionButton";
+import CustomButton from "./CustomButton";
 
 export type Column = {
   id: string;
@@ -42,6 +43,9 @@ type CollapsibleTableProps = {
   correctionActive: boolean;
   onCorrectionFinished: (data: any) => Promise<void>;
   computeDetailRow?: (detail: any, parent: GenericRow) => any;
+  onAICorrection?: () => void;
+  aiCorrectionLoading?: boolean;
+  classID?: string;
 };
 
 function CollapsibleRow({
@@ -52,6 +56,9 @@ function CollapsibleRow({
   computeDetailRow,
   correctionActive,
   onCorrectionFinished,
+  onAICorrection,
+  aiCorrectionLoading,
+  classID,
 }: CollapsibleTableProps & { row: GenericRow }) {
   const [open, setOpen] = React.useState(false);
 
@@ -89,14 +96,25 @@ function CollapsibleRow({
         <TableCell align="right" style={{ whiteSpace: "nowrap" }}>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
             {row.actions || (
-              <CorrectionButton
-                students={row.details || []}
-                exam={row.exam}
-                label={"Corrigir fechadas"}
-                isActive={correctionActive}
-                selectedExam={row.examTitle || ''}
-                onFinished={onCorrectionFinished}
-              />
+              <>
+                <CorrectionButton
+                  students={row.details || []}
+                  exam={row.exam}
+                  label={"Corrigir fechadas"}
+                  isActive={correctionActive}
+                  selectedExam={row.examTitle || ''}
+                  onFinished={onCorrectionFinished}
+                  size="small"
+                />
+                {onAICorrection && (
+                  <CustomButton
+                    label="Corrigir abertas"
+                    onClick={onAICorrection}
+                    disabled={aiCorrectionLoading || !classID}
+                    size="small"
+                  />
+                )}
+              </>
             )}
           </div>
         </TableCell>

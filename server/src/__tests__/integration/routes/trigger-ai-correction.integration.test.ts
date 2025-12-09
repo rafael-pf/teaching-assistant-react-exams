@@ -1,12 +1,9 @@
 import request from 'supertest';
 import { Express } from 'express';
 import { createTestApp } from '../../helpers/test-app';
-import { examSet, studentExamSet, questionSet } from '../../../services/dataService';
-import { Exam } from '../../../models/Exam';
-import { StudentExam } from '../../../models/StudentExam';
-import { Question } from '../../../models/Question';
-import { QuestionOption } from '../../../models/QuestionOption';
-import { StudentAnswer } from '../../../models/StudentAnswer';
+import { examsManager, questionsManager } from '../../../services/dataService';
+import { ExamRecord, StudentExamRecord } from '../../../models/Exams';
+import { CreateQuestionInput } from '../../../models/Questions';
 import { AIModel } from '../../../types/AIModel';
 import * as qstashServiceModule from '../../../services/qstashService';
 
@@ -28,9 +25,16 @@ describe('POST /api/trigger-ai-correction - Teste de Integração', () => {
     app = createTestApp();
     
     // Limpa dados de teste
-    examSet.getAllExams().forEach(exam => examSet.removeExam(exam.getId()));
-    studentExamSet.getAllStudentExams().forEach(se => studentExamSet.removeStudentExam(se.getId()));
-    questionSet.getAllQuestions().forEach(q => questionSet.removeQuestion(q.getId()));
+    examsManager.replaceAll([]);
+    questionsManager.replaceAll([]);
+    // Limpa student exams também
+    const allStudentExams = examsManager.getAllStudentExams();
+    allStudentExams.forEach(se => {
+      const exam = examsManager.getExamById(se.examId);
+      if (exam) {
+        examsManager.deleteExam(exam.id);
+      }
+    });
 
     // Configura mock do QStash
     mockedQStashService.isConfigured.mockReturnValue(true);
@@ -48,44 +52,46 @@ describe('POST /api/trigger-ai-correction - Teste de Integração', () => {
     it('deve buscar exames, studentExams e questões e enviar para QStash', async () => {
       // Arrange: Cria dados de teste integrando múltiplos componentes
       // 1. Cria questões abertas
-      const question1 = new Question(
-        1,
-        'Explique o conceito de arquitetura de software',
-        'Arquitetura',
-        'open',
-        undefined,
-        'Arquitetura de software é a estrutura fundamental de um sistema...'
-      );
-      const question2 = new Question(
-        2,
-        'Descreva os princípios SOLID',
-        'Princípios',
-        'open',
-        undefined,
-        'SOLID são cinco princípios de design orientado a objetos...'
-      );
-      questionSet.addQuestion(question1);
-      questionSet.addQuestion(question2);
+      const question1: CreateQuestionInput = {
+        question: 'Explique o conceito de arquitetura de software',
+        topic: 'Arquitetura',
+        type: 'open',
+        answer: 'Arquitetura de software é a estrutura fundamental de um sistema...'
+      };
+      const question2: CreateQuestionInput = {
+        question: 'Descreva os princípios SOLID',
+        topic: 'Princípios',
+        type: 'open',
+        answer: 'SOLID são cinco princípios de design orientado a objetos...'
+      };
+      const q1 = questionsManager.addQuestion(question1);
+      const q2 = questionsManager.addQuestion(question2);
+      (q1 as any).id = 1;
+      (q2 as any).id = 2;
 
       // 2. Cria exame para a classe
-      const exam = new Exam(
-        1,
-        classId,
-        'Prova de Arquitetura de Software',
-        true,
-        2, // openQuestions
-        0, // closedQuestions
-        [1, 2] // question IDs
-      );
-      examSet.addExam(exam);
+      const exam: ExamRecord = {
+        id: 1,
+        classId: classId,
+        title: 'Prova de Arquitetura de Software',
+        isValid: true,
+        openQuestions: 2,
+        closedQuestions: 0,
+        questions: [1, 2]
+      };
+      examsManager.addExam(exam);
 
       // 3. Cria StudentExam com respostas dos alunos
-      const studentAnswers1 = [
-        new StudentAnswer(1, 'Arquitetura de software define a estrutura e organização de um sistema', 0),
-        new StudentAnswer(2, 'SOLID são princípios que ajudam no design de código', 0),
-      ];
-      const studentExam = new StudentExam(1, '12345678900', 1, studentAnswers1);
-      studentExamSet.addStudentExam(studentExam);
+      const studentExam: StudentExamRecord = {
+        id: 1,
+        studentCPF: '12345678900',
+        examId: 1,
+        answers: [
+          { questionId: 1, answer: 'Arquitetura de software define a estrutura e organização de um sistema' },
+          { questionId: 2, answer: 'SOLID são princípios que ajudam no design de código' }
+        ]
+      };
+      examsManager.addStudentExam(studentExam);
 
       // Act: Faz requisição ao endpoint
       const response = await request(app)
@@ -121,39 +127,55 @@ describe('POST /api/trigger-ai-correction - Teste de Integração', () => {
 
     it('deve calcular tempo estimado corretamente integrando examSet e studentExamSet', async () => {
       // Arrange: Cria múltiplos estudantes e questões
-      const question1 = new Question(
-        10,
-        'O que é REST?',
-        'APIs',
-        'open',
-        undefined,
-        'REST é um estilo arquitetural para sistemas distribuídos'
-      );
-      const question2 = new Question(
-        11,
-        'Explique o padrão MVC',
-        'Padrões',
-        'open',
-        undefined,
-        'MVC separa a aplicação em Model, View e Controller'
-      );
-      questionSet.addQuestion(question1);
-      questionSet.addQuestion(question2);
+      const question1: CreateQuestionInput = {
+        question: 'O que é REST?',
+        topic: 'APIs',
+        type: 'open',
+        answer: 'REST é um estilo arquitetural para sistemas distribuídos'
+      };
+      const question2: CreateQuestionInput = {
+        question: 'Explique o padrão MVC',
+        topic: 'Padrões',
+        type: 'open',
+        answer: 'MVC separa a aplicação em Model, View e Controller'
+      };
+      const q1 = questionsManager.addQuestion(question1);
+      const q2 = questionsManager.addQuestion(question2);
+      (q1 as any).id = 10;
+      (q2 as any).id = 11;
 
-      const exam = new Exam(2, classId, 'Prova de Padrões de Projeto', true, 2, 0, [10, 11]);
-      examSet.addExam(exam);
+      const exam: ExamRecord = {
+        id: 2,
+        classId: classId,
+        title: 'Prova de Padrões de Projeto',
+        isValid: true,
+        openQuestions: 2,
+        closedQuestions: 0,
+        questions: [10, 11]
+      };
+      examsManager.addExam(exam);
 
       // Cria dois exames de estudantes diferentes
-      const studentExam1 = new StudentExam(2, '11111111111', 2, [
-        new StudentAnswer(10, 'REST é um protocolo de comunicação', 0),
-        new StudentAnswer(11, 'MVC é um padrão de arquitetura', 0),
-      ]);
-      const studentExam2 = new StudentExam(3, '22222222222', 2, [
-        new StudentAnswer(10, 'RESTful API', 0),
-        new StudentAnswer(11, 'Model View Controller', 0),
-      ]);
-      studentExamSet.addStudentExam(studentExam1);
-      studentExamSet.addStudentExam(studentExam2);
+      const studentExam1: StudentExamRecord = {
+        id: 2,
+        studentCPF: '11111111111',
+        examId: 2,
+        answers: [
+          { questionId: 10, answer: 'REST é um protocolo de comunicação' },
+          { questionId: 11, answer: 'MVC é um padrão de arquitetura' }
+        ]
+      };
+      const studentExam2: StudentExamRecord = {
+        id: 3,
+        studentCPF: '22222222222',
+        examId: 2,
+        answers: [
+          { questionId: 10, answer: 'RESTful API' },
+          { questionId: 11, answer: 'Model View Controller' }
+        ]
+      };
+      examsManager.addStudentExam(studentExam1);
+      examsManager.addStudentExam(studentExam2);
 
       // Act
       const response = await request(app)
@@ -175,36 +197,47 @@ describe('POST /api/trigger-ai-correction - Teste de Integração', () => {
 
     it('deve filtrar apenas questões abertas integrando questionSet e examSet', async () => {
       // Arrange: Cria questões abertas e fechadas
-      const openQuestion = new Question(
-        20,
-        'Explique testes de integração',
-        'Testes',
-        'open',
-        undefined,
-        'Testes de integração verificam a interação entre componentes'
-      );
-      const closedQuestion = new Question(
-        21,
-        'Qual é a melhor prática para versionamento de API?',
-        'APIs',
-        'closed',
-        [
-          QuestionOption.fromJSON({ id: 1, option: 'Versionamento por URL', isCorrect: true }),
-          QuestionOption.fromJSON({ id: 2, option: 'Sem versionamento', isCorrect: false }),
-        ],
-        undefined
-      );
-      questionSet.addQuestion(openQuestion);
-      questionSet.addQuestion(closedQuestion);
+      const openQuestion: CreateQuestionInput = {
+        question: 'Explique testes de integração',
+        topic: 'Testes',
+        type: 'open',
+        answer: 'Testes de integração verificam a interação entre componentes'
+      };
+      const closedQuestion: CreateQuestionInput = {
+        question: 'Qual é a melhor prática para versionamento de API?',
+        topic: 'APIs',
+        type: 'closed',
+        options: [
+          { option: 'Versionamento por URL', isCorrect: true },
+          { option: 'Sem versionamento', isCorrect: false }
+        ]
+      };
+      const q1 = questionsManager.addQuestion(openQuestion);
+      const q2 = questionsManager.addQuestion(closedQuestion);
+      (q1 as any).id = 20;
+      (q2 as any).id = 21;
 
-      const exam = new Exam(3, classId, 'Prova Mista', true, 1, 1, [20, 21]);
-      examSet.addExam(exam);
+      const exam: ExamRecord = {
+        id: 3,
+        classId: classId,
+        title: 'Prova Mista',
+        isValid: true,
+        openQuestions: 1,
+        closedQuestions: 1,
+        questions: [20, 21]
+      };
+      examsManager.addExam(exam);
 
-      const studentExam = new StudentExam(4, '33333333333', 3, [
-        new StudentAnswer(20, 'Testes que verificam múltiplos componentes juntos', 0),
-        new StudentAnswer(21, 'Versionamento por URL', 0),
-      ]);
-      studentExamSet.addStudentExam(studentExam);
+      const studentExam: StudentExamRecord = {
+        id: 4,
+        studentCPF: '33333333333',
+        examId: 3,
+        answers: [
+          { questionId: 20, answer: 'Testes que verificam múltiplos componentes juntos' },
+          { questionId: 21, answer: 'Versionamento por URL' }
+        ]
+      };
+      examsManager.addStudentExam(studentExam);
 
       // Act
       const response = await request(app)
@@ -228,11 +261,24 @@ describe('POST /api/trigger-ai-correction - Teste de Integração', () => {
       // Arrange
       mockedQStashService.isConfigured.mockReturnValue(false);
 
-      const exam = new Exam(99, classId, 'Prova Teste', true, 1, 0, []);
-      examSet.addExam(exam);
+      const exam: ExamRecord = {
+        id: 99,
+        classId: classId,
+        title: 'Prova Teste',
+        isValid: true,
+        openQuestions: 1,
+        closedQuestions: 0,
+        questions: []
+      };
+      examsManager.addExam(exam);
 
-      const studentExam = new StudentExam(99, '99999999999', 99, []);
-      studentExamSet.addStudentExam(studentExam);
+      const studentExam: StudentExamRecord = {
+        id: 99,
+        studentCPF: '99999999999',
+        examId: 99,
+        answers: []
+      };
+      examsManager.addStudentExam(studentExam);
 
       // Act
       const response = await request(app)
@@ -250,24 +296,62 @@ describe('POST /api/trigger-ai-correction - Teste de Integração', () => {
 
     it('deve processar múltiplos exames da mesma classe corretamente', async () => {
       // Arrange: Cria dois exames diferentes para a mesma classe
-      const question1 = new Question(30, 'Questão 1', 'Tópico 1', 'open', undefined, 'Resposta 1');
-      const question2 = new Question(31, 'Questão 2', 'Tópico 2', 'open', undefined, 'Resposta 2');
-      questionSet.addQuestion(question1);
-      questionSet.addQuestion(question2);
+      const question1: CreateQuestionInput = {
+        question: 'Questão 1',
+        topic: 'Tópico 1',
+        type: 'open',
+        answer: 'Resposta 1'
+      };
+      const question2: CreateQuestionInput = {
+        question: 'Questão 2',
+        topic: 'Tópico 2',
+        type: 'open',
+        answer: 'Resposta 2'
+      };
+      const q1 = questionsManager.addQuestion(question1);
+      const q2 = questionsManager.addQuestion(question2);
+      (q1 as any).id = 30;
+      (q2 as any).id = 31;
 
-      const exam1 = new Exam(10, classId, 'Prova Parcial 1', true, 1, 0, [30]);
-      const exam2 = new Exam(11, classId, 'Prova Parcial 2', true, 1, 0, [31]);
-      examSet.addExam(exam1);
-      examSet.addExam(exam2);
+      const exam1: ExamRecord = {
+        id: 10,
+        classId: classId,
+        title: 'Prova Parcial 1',
+        isValid: true,
+        openQuestions: 1,
+        closedQuestions: 0,
+        questions: [30]
+      };
+      const exam2: ExamRecord = {
+        id: 11,
+        classId: classId,
+        title: 'Prova Parcial 2',
+        isValid: true,
+        openQuestions: 1,
+        closedQuestions: 0,
+        questions: [31]
+      };
+      examsManager.addExam(exam1);
+      examsManager.addExam(exam2);
 
-      const studentExam1 = new StudentExam(10, '11111111111', 10, [
-        new StudentAnswer(30, 'Resposta aluno 1', 0),
-      ]);
-      const studentExam2 = new StudentExam(11, '11111111111', 11, [
-        new StudentAnswer(31, 'Resposta aluno 2', 0),
-      ]);
-      studentExamSet.addStudentExam(studentExam1);
-      studentExamSet.addStudentExam(studentExam2);
+      const studentExam1: StudentExamRecord = {
+        id: 10,
+        studentCPF: '11111111111',
+        examId: 10,
+        answers: [
+          { questionId: 30, answer: 'Resposta aluno 1' }
+        ]
+      };
+      const studentExam2: StudentExamRecord = {
+        id: 11,
+        studentCPF: '11111111111',
+        examId: 11,
+        answers: [
+          { questionId: 31, answer: 'Resposta aluno 2' }
+        ]
+      };
+      examsManager.addStudentExam(studentExam1);
+      examsManager.addStudentExam(studentExam2);
 
       // Act
       const response = await request(app)
@@ -285,4 +369,3 @@ describe('POST /api/trigger-ai-correction - Teste de Integração', () => {
     });
   });
 });
-

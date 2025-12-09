@@ -380,13 +380,6 @@ export default function ExamPage() {
           initialText={selectedExam}
         />
 
-        {/* Botão de Correção de IA */}
-        <CustomButton
-          label="Corrigir com IA"
-          onClick={handleStartAICorrection}
-          disabled={correctionLoading || !classID}
-        />
-
         {selectedExam !== "Todas as provas" && (
           <Button
             variant="outlined"
@@ -458,6 +451,9 @@ export default function ExamPage() {
           computeDetailRow={(detail) => detail}
           correctionActive={correctionActive}
           onCorrectionFinished={handleExamSelect}
+          onAICorrection={handleStartAICorrection}
+          aiCorrectionLoading={correctionLoading}
+          classID={classID}
         />
       )}
 

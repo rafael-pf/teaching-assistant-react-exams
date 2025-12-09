@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { AIModel } from '../types/AIModel';
-import { examSet, studentExamSet, questionSet } from '../services/dataService';
+import { examsManager, questionsManager, getStudentExamsByClassId, getOpenQuestionsForExam } from '../services/dataService';
 import { qstashService } from '../services/qstashService';
 
 const router = Router();
@@ -22,11 +22,7 @@ router.post('/trigger-ai-correction', async (req: Request, res: Response) => {
     }
 
     // Buscar StudentExams por classId
-    const exams = examSet.getAllExams();
-    const studentExams = studentExamSet.findStudentExamsByClassId(
-      classId,
-      exams.map(e => ({ id: e.getId(), classId: e.getClassId() }))
-    );
+    const studentExams = getStudentExamsByClassId(classId);
 
     if (studentExams.length === 0) {
       return res.status(404).json({ error: 'No student exams found for this class' });
@@ -35,9 +31,9 @@ router.post('/trigger-ai-correction', async (req: Request, res: Response) => {
     // Calcular tempo estimado de conclusão
     // Cada correção leva aproximadamente: 2 segundos de processamento + 60 segundos de timeout = 62 segundos
     const totalOpenQuestions = studentExams.reduce((total, se) => {
-      const exam = examSet.findExamById(se.getExamId());
+      const exam = examsManager.getExamById(se.examId);
       if (!exam) return total;
-      return total + exam.getOpenQuestions();
+      return total + exam.openQuestions;
     }, 0);
     
     // Tempo por questão: ~2 segundos de processamento + 60 segundos de timeout = 62 segundos
@@ -67,26 +63,30 @@ router.post('/trigger-ai-correction', async (req: Request, res: Response) => {
     }> = [];
 
     for (const studentExam of studentExams) {
-      const exam = examSet.findExamById(studentExam.getExamId());
+      const exam = examsManager.getExamById(studentExam.examId);
       if (!exam) continue;
 
-      const examQuestions = exam.getQuestions();
+      // Get open questions for this exam
+      const openQuestions = getOpenQuestionsForExam(exam.id);
       
-      for (const questionId of examQuestions) {
-        const question = questionSet.findQuestionById(questionId);
-        if (!question || question.getType() !== 'open') continue;
-
-        const studentAnswer = studentExam.getAnswerByQuestionId(questionId);
+      for (const question of openQuestions) {
+        // Find student's answer for this question
+        const studentAnswer = studentExam.answers.find(a => a.questionId === question.id);
         if (!studentAnswer) continue;
 
+        // Get correct answer
+        const correctAnswer = question.type === 'open' 
+          ? (question.answer || '')
+          : (question.options?.find(opt => opt.isCorrect)?.option || '');
+
         messagesToQueue.push({
-          studentExamId: studentExam.getId(),
-          questionId: questionId,
-          questionText: question.getQuestion(),
-          studentAnswer: studentAnswer.getAnswer(),
-          correctAnswer: question.getAnswer() || '',
+          studentExamId: studentExam.id,
+          questionId: question.id,
+          questionText: question.question,
+          studentAnswer: studentAnswer.answer,
+          correctAnswer: correctAnswer,
           model: model,
-          questionType: question.getType()
+          questionType: question.type
         });
       }
     }

@@ -2,8 +2,7 @@ import { Router, Request, Response } from 'express';
 import { AICorrectionRequest, AIModel } from '../types/AIModel';
 import { AIServiceFactory } from '../services/ai/AIServiceFactory';
 import { IAIService } from '../services/ai/IAIService';
-import { studentExamSet } from '../services/dataService';
-import { triggerSaveStudentsExams } from '../services/dataService';
+import { examsManager, triggerSaveStudentsExams } from '../services/dataService';
 import { geminiConfig } from '../config';
 
 const router = Router();
@@ -29,7 +28,7 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
     }
 
     // Busca o StudentExam
-    const studentExam = studentExamSet.findStudentExamById(studentExamId);
+    const studentExam = examsManager.getStudentExamById(studentExamId);
     if (!studentExam) {
       return res.status(404).json({ error: 'Student exam not found' });
     }
@@ -65,11 +64,11 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
     const percentageScore = (aiCorrectionResponse.score / 10) * 100;
 
     // Atualiza o StudentExam com a pontuação (0% - 100%) que o aluno obteve na questão
-    const updated = studentExam.setAnswerScore(questionId, percentageScore);
+    const updated = examsManager.updateStudentExamAnswerScore(studentExamId, questionId, percentageScore);
     
     if (!updated) {
       // Se a resposta não existe, cria uma nova
-      studentExam.addOrUpdateAnswer(questionId, studentAnswer, percentageScore);
+      examsManager.addOrUpdateStudentExamAnswer(studentExamId, questionId, studentAnswer, percentageScore);
     }
 
     // Salva as alterações

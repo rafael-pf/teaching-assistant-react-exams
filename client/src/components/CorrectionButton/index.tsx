@@ -14,7 +14,7 @@ interface CorrectionButtonProps {
     onFinished: (data: any) => Promise<void>;
 }
 
-export default function CorrectionButton({ students, exam, label, isActive, selectedExam, className = '', onFinished }: CorrectionButtonProps) {
+export default function CorrectionButton({ students, exam, label, isActive, selectedExam, className = '', onFinished, size = 'medium' }: CorrectionButtonProps & { size?: 'small' | 'medium' | 'large' }) {
   
   // 🔥 hover ativo só quando condição é true
   const hoverClass = isActive ? '' : 'no-hover';
@@ -59,6 +59,7 @@ export default function CorrectionButton({ students, exam, label, isActive, sele
         onClick={isActive ? handleCorrectExam : undefined}
         color={appliedColor}
         className={`${className} ${hoverClass}`}
+        size={size}
       />
 
       <Alert

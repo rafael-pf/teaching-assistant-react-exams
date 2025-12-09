@@ -11,7 +11,7 @@ let examTitleGlobal: string;
 let browser: Browser;
 let page: Page;
 
-Before({ tags: '@gui' }, async function () {
+Before({ tags: '@gui or @create-exam' }, async function () {
     browser = await launch({
         headless: false, // Set to true for CI/CD
         slowMo: 50 // Slow down actions for visibility
@@ -20,7 +20,7 @@ Before({ tags: '@gui' }, async function () {
     await page.setViewport({ width: 1280, height: 720 });
 });
 
-After({ tags: '@gui' }, async function () {
+After({ tags: '@gui or @create-exam' }, async function () {
 
     if (browser) {
         await browser.close();
@@ -185,7 +185,7 @@ When('professor {string} deletes the exam {string}', async function (professorNa
     await page.click('[data-testid="delete-exam-button"]');
 });
 
-When('the professor clicks on {string}', async function (buttonName: string) {
+When('the professor uses {string}', async function (buttonName: string) {
     await page.waitForSelector(`[data-testid="${buttonName}"]`);
     await page.click(`[data-testid="${buttonName}"]`);
 });

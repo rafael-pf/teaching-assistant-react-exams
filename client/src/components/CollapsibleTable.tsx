@@ -15,6 +15,7 @@ import {
 
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import CorrectionButton from "./CorrectionButton";
 
 export type Column = {
   id: string;
@@ -38,7 +39,9 @@ type CollapsibleTableProps = {
   detailColumns: DetailColumn[];
   rows: GenericRow[];
   detailTitle?: string;
-  computeDetailRow?: (detail: any, parent: GenericRow) => any; 
+  correctionActive: boolean;
+  onCorrectionFinished: (data: any) => Promise<void>;
+  computeDetailRow?: (detail: any, parent: GenericRow) => any;
 };
 
 function CollapsibleRow({
@@ -47,8 +50,9 @@ function CollapsibleRow({
   detailColumns,
   detailTitle = "Details",
   computeDetailRow,
+  correctionActive,
+  onCorrectionFinished,
 }: CollapsibleTableProps & { row: GenericRow }) {
-  
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -81,6 +85,21 @@ function CollapsibleRow({
             {row[col.id]}
           </TableCell>
         ))}
+        {/* Actions cell: allow placing buttons or controls for each row via `row.actions` (React nodes) */}
+        <TableCell align="right" style={{ whiteSpace: "nowrap" }}>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
+            {row.actions || (
+              <CorrectionButton
+                students={row.details || []}
+                exam={row.exam}
+                label={"Corrigir fechadas"}
+                isActive={correctionActive}
+                selectedExam={row.examTitle || ''}
+                onFinished={onCorrectionFinished}
+              />
+            )}
+          </div>
+        </TableCell>
       </TableRow>
 
       {/* Parte colapsada */}
@@ -138,7 +157,10 @@ export default function CollapsibleTable(props: CollapsibleTableProps) {
   const { rows } = props;
 
   return (
-    <TableContainer component={Paper}>
+    <TableContainer
+      component={Paper}
+      data-testid="exam-table"
+    >
       <Table>
         <TableHead>
           <TableRow>
@@ -148,6 +170,7 @@ export default function CollapsibleTable(props: CollapsibleTableProps) {
                 {col.label}
               </TableCell>
             ))}
+            <TableCell align="right">Ações</TableCell>
           </TableRow>
         </TableHead>
 
@@ -155,6 +178,7 @@ export default function CollapsibleTable(props: CollapsibleTableProps) {
           {rows.map((row, i) => (
             <CollapsibleRow key={i} row={row} {...props} />
           ))}
+        
         </TableBody>
       </Table>
     </TableContainer>

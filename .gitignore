@@ -2,3 +2,6 @@ node_modules
 server/dist
 client/build
 .env
+# Cucumber test reports
+client/reports/
+cucumber-report.*

@@ -126,9 +126,9 @@ Given('registers the exam {string} with questions {string} and {string} and {str
 
 
 Given('class {string} has exams {string} and {string} registered', async function (className: string, exam1: string, exam2: string) {
-    await page.waitForSelector('[data-testid="dropdown-button"]');
-    await page.click('[data-testid="dropdown-button"]');
-    await page.waitForSelector('[data-testid="dropdown-button"]');
+    await page.waitForSelector('[data-testid="exam-dropdown"]');
+    await page.click('[data-testid="exam-dropdown"]');
+    await page.waitForSelector('[data-testid="exam-dropdown"]');
 })
 
 
@@ -169,7 +169,7 @@ When('confirms the exam registration', async function () {
 
 When('professor {string} deletes the exam {string}', async function (professorName: string, examTitle: string) {
     // First, select the exam from the dropdown
-    await page.click('[data-testid="dropdown-button"]');
+    await page.click('[data-testid="exam-dropdown"]');
     await page.waitForSelector(`[data-testid="dropdown-item-${examTitle}"]`);
     await page.click(`[data-testid="dropdown-item-${examTitle}"]`);
 
@@ -261,7 +261,7 @@ Then('displays the message {string}', async function (msg: string) {
 
 Then('the exam {string} appears in the list of registered exams', async function (title: string) {
     // Abrir dropdown
-    await page.click('[data-testid="dropdown-button"]');
+    await page.click('[data-testid="exam-dropdown"]');
 
     const selector = `[data-testid="dropdown-item-${title}"]`;
 

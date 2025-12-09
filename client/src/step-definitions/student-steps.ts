@@ -370,7 +370,7 @@ When('I submit the question form', async function () {
   const submitButton = await page.$('[data-testid="question-submit-button"]');
   expect(submitButton).toBeTruthy();
   await submitButton!.click();
-  await page.waitForTimeout(1500);
+  await new Promise(resolve => setTimeout(resolve, 1500));
 });
 
 Then('I should see {string} in the question bank list', async function (questionText: string) {

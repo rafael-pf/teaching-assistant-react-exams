@@ -83,7 +83,7 @@ Then('o campo de quantidade deve sugerir o valor {string} \\(total de alunos)', 
 });
 
 When('ele confirma o download', async function () {
-    const confirmBtnXpath = `//button[contains(., 'Baixar ZIP') or contains(., 'Confirmar')]`;
+    const confirmBtnXpath = `//button[contains(., 'Baixar Lote') or contains(., 'Confirmar')]`;
     await waitForAndClick(confirmBtnXpath);
 });
 

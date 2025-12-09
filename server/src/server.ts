@@ -10,7 +10,9 @@ const app = express();
 const PORT = serverConfig.port;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  exposedHeaders: ['Content-Disposition']
+}));
 app.use(express.json());
 
 // Valida configurações na inicialização
@@ -26,7 +28,13 @@ if (configErrors.length > 0) {
 
 // Load existing data on startup
 loadAllData();
-console.log(`Server loaded ${examsManager.getAllExams().length} exams on startup`);
+const count = examsManager?.getAllExams?.()?.length;
+
+if (typeof count === 'number') {
+  console.log(`Server loaded ${count} exams on startup`);
+} else {
+  console.log('Server loaded (Testing Mode - Mocked DataService)');
+}
 
 // Routes
 

@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { studentSet } from "../services/dataService";
 
 type Question = {
   id: number;
@@ -114,4 +115,20 @@ export class Correction {
     return response.grade_closed;
   }
 
+  static getAnswersForExam(examId: number) {
+    const responsesData = this.loadJson(this.responsesPath);
+    
+    const grades = responsesData.responses
+      .filter((r: ResponseItem) => r.examId === examId)
+      .map((r: ResponseItem) => ({
+        studentCPF: r.studentCPF,
+        name: studentSet.findStudentByCPF(r.studentCPF)?.name ?? "Aluno não registrado",
+        answers: r.answers.map((a: Answer) => ({
+          questionId: a.questionId,
+          grade: a.grade !== undefined ? a.grade : null,
+        }))
+      }));
+
+    return grades;
+  }
 }

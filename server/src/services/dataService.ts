@@ -662,4 +662,17 @@ export const getOpenQuestionsForExam = (examId: number): QuestionRecord[] => {
   return allQuestions.filter(q => q.type === 'open');
 };
 
+export const getNextGenerationId = (): string => {
+    if (examGenerations.length === 0) {
+        return "1";
+    }
+
+    const maxId = examGenerations.reduce((max, current) => {
+        const currentId = parseInt(current.id, 10);
+        return !isNaN(currentId) && currentId > max ? currentId : max;
+    }, 0);
+
+    return (maxId + 1).toString();
+};
+
 export type { QuestionRecord, QuestionOptionRecord } from '../models/Questions';

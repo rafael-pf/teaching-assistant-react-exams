@@ -4,40 +4,33 @@ Feature: Exam registration and management via user interface
   So that I can generate individual versions for enrolled students
 
   @gui
-  Scenario: Register exam with rules
-    Given professor "Paulo" accesses the screen "Exam Registration"
+  Scenario: Register exam
+    Given professor "Paulo" accesses the screen Exam
+    And open the popup "exam-popup"
     When the professor provides the title "Requisitos"
-    And defines the rules "2 open questions" and "3 closed questions"
     And selects the questions "1" and "2" and "3" and "4" and "5"
     And confirms the exam registration
     Then the system registers the exam "Requisitos" successfully
     And displays the message "Provas geradas com sucesso!"
 
-# @gui
-# Scenario: Validation of invalid rules
-#   Given professor "Paulo" is filling in the form to create an exam
-#   When he defines a number of questions greater than the quantity available in the question bank
-#   Then the system shows the error message "Not enough questions available to meet the selected rules"
-#   And the system prevents the exam from being saved
+  @gui
+  Scenario: Delete an exam
+    Given professor "Paulo" accesses the screen Exam
+    And open the popup "exam-popup"
+    And registers the exam "Gestao de Projetos" with questions "1" and "2" and "3" and "4" and "5"
+    When professor "Paulo" deletes the exam "Gestao de Projetos"
+    Then the system shows the message "Exame deletado com sucesso!"
+    And the exam "Gestao de Projetos" is no longer in the list of registered exams
 
-# @gui
-# Scenario: Generation of individual exams
-#   Given professor "Paulo" opens the registered exam "Requisitos"
-#   And the associated class has the enrolled students "Vinícius" and "Pedro"
-#   When the professor requests the generation of individual exams
-#   Then the system displays a progress indicator for the generation
-#   And lists each generated exam with the student’s name and a unique exam identifier
+  @gui
+  Scenario: List of exams in a class
+    Given professor "Paulo" accesses the screen Exam
+    And class "Engenharia de Software e Sistemas-2025-1" has exams "Exame de Requisitos" and "Gerência de Configuração" registered
+    When professor "Paulo" selects the list of exams of the class "Engenharia de Software e Sistemas-2025-1"
+    Then the system shows the list of exams "Exame de Requisitos" and "Gerência de Configuração"
 
-# @gui
-# Scenario: Viewing and downloading individual exams
-#   Given the system has already generated individual versions of exam "Requisitos"
-#   When professor "Paulo" accesses the tab "Generated Exams"
-#   Then the system displays each version with the student name, the exam identifier, and the generation date
-#   And allows the professor to view or download each version
-
-# @gui
-# Scenario: Editing exam rules
-#   Given professor "Paulo" accesses the previously registered exam "Requisitos"
-#   When he changes the exam rules
-#   Then the system warns "Changing the rules will invalidate previously generated versions"
-#   And the system requests confirmation before applying the changes
+  @gui @unit
+  Scenario: Create an exam button show an popup
+    Given professor "Paulo" accesses the screen Exam
+    When the professor clicks on "open-create-exam"
+    Then popup "exam-popup" should be visible

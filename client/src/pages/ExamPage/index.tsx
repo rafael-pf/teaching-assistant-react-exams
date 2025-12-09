@@ -6,6 +6,11 @@ import CollapsibleTable, { Column, DetailColumn } from "../../components/Collaps
 import Alert from "../../components/Alert";
 import Dropdown from "../../components/DropDown";
 import ExamsService from "../../services/ExamsService";
+import ModelSelectionModal from "../../components/ModelSelectionModal";
+import SuccessModal from "../../components/SuccessModal";
+import CorrectionsViewModal from "../../components/CorrectionsViewModal";
+import AICorrectionService from "../../services/AICorrectionService";
+import CorrectionService from "../../services/CorrectionService";
 import QuestionService from "../../services/QuestionService";
 import { Button } from "@mui/material";
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -38,11 +43,24 @@ export default function ExamPage() {
 
   const [rows, setRows] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
+  const [totalStudents, setTotalStudents] = useState(0);
 
   const [selectedExam, setSelectedExam] = useState("Todas as provas");
 
+  // Estados para correção de IA
+  const [modelSelectionModalOpen, setModelSelectionModalOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [correctionLoading, setCorrectionLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [correctionResult, setCorrectionResult] = useState<any>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
+
+  // Estados para PDF
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [selectedExamIdForPdf, setSelectedExamIdForPdf] = useState<string | null>(null);
+
+  // Visualização de correções
+  const [correctionsViewModalOpen, setCorrectionsViewModalOpen] = useState(false);
 
   const [alertConfig, setAlertConfig] = useState({
     open: false,
@@ -113,16 +131,22 @@ export default function ExamPage() {
     return rows;
   };
 
-
   const loadAllData = useCallback(async () => {
     if (!classID) return;
 
     try {
       setTableLoading(true);
 
-      const examsResponse = await ExamsService.getExamsForClass(classID);
+      const [examsResponse, studentsResponse] = await Promise.all([
+        ExamsService.getExamsForClass(classID),
+        ExamsService.getStudentsWithExamsForClass(classID)
+      ]);
       setExams(examsResponse.data || []);
 
+      if (studentsResponse.data && Array.isArray(studentsResponse.data)) {
+        const uniqueStudents = new Set(studentsResponse.data.map((s: any) => s.studentName));
+        setTotalStudents(uniqueStudents.size);
+      }
       // Fetch all generations for all exams in the class
       const allGenerations: any[] = [];
       for (const exam of (examsResponse.data || [])) {
@@ -283,6 +307,194 @@ export default function ExamPage() {
     }
   };
 
+  // -------------------------------------------
+  // Correção de IA (Abertas)
+  // -------------------------------------------
+  const handleStartAICorrection = () => {
+    if (selectedExam === "Todas as provas") {
+      setAlertConfig({
+        open: true,
+        message: "Selecione uma prova específica para corrigir questões abertas.",
+        severity: "warning"
+      });
+      return;
+    }
+
+    const examId = getExamIdByTitle(selectedExam);
+    if (!examId) {
+      setAlertConfig({
+        open: true,
+        message: "Prova não encontrada.",
+        severity: "error"
+      });
+      return;
+    }
+
+    setErrorMessage("");
+    setModelSelectionModalOpen(true);
+  };
+
+  const handleModelSelect = async (model: string) => {
+    // Validação: não permite confirmar sem selecionar um modelo
+    if (!model || model === "" || model === "Selecione um modelo") {
+      setErrorMessage("Você deve selecionar um modelo de IA para continuar");
+      setModelSelectionModalOpen(false);
+      return;
+    }
+
+    setSelectedModel(model);
+    setModelSelectionModalOpen(false);
+    setErrorMessage("");
+
+    // Inicia o processo de correção
+    try {
+      setCorrectionLoading(true);
+
+      const examId = getExamIdByTitle(selectedExam);
+      if (!examId) {
+        throw new Error("Prova não encontrada");
+      }
+
+      const response = await AICorrectionService.triggerAICorrection(
+        Number(examId),
+        model
+      );
+
+      // Sucesso: mostra modal de sucesso
+      setCorrectionResult({
+        ...response,
+        model: model // Adiciona o modelo selecionado à resposta
+      });
+      setSuccessModalOpen(true);
+    } catch (error) {
+      // Erro: mostra mensagem de erro
+      const errorMsg = error instanceof Error
+        ? error.message
+        : "Erro ao iniciar a correção. Por favor, tente novamente.";
+      setErrorMessage(errorMsg);
+      setAlertConfig({
+        open: true,
+        message: errorMsg,
+        severity: "error"
+      });
+    } finally {
+      setCorrectionLoading(false);
+    }
+  };
+
+  // -------------------------------------------
+  // Visualizar Correções
+  // -------------------------------------------
+  const handleViewCorrections = () => {
+    if (selectedExam === "Todas as provas") {
+      setAlertConfig({
+        open: true,
+        message: "Selecione uma prova específica para visualizar correções.",
+        severity: "warning"
+      });
+      return;
+    }
+
+    const examId = getExamIdByTitle(selectedExam);
+    if (!examId) {
+      setAlertConfig({
+        open: true,
+        message: "Prova não encontrada.",
+        severity: "error"
+      });
+      return;
+    }
+
+    setCorrectionsViewModalOpen(true);
+  };
+
+  // -------------------------------------------
+  // Correção de Fechadas
+  // -------------------------------------------
+  const handleCorrectClosedQuestions = async () => {
+    if (selectedExam === "Todas as provas") {
+      setAlertConfig({
+        open: true,
+        message: "Selecione uma prova específica para corrigir questões fechadas.",
+        severity: "warning"
+      });
+      return;
+    }
+
+    const examId = getExamIdByTitle(selectedExam);
+    if (!examId || !classID) {
+      setAlertConfig({
+        open: true,
+        message: "Dados insuficientes para corrigir.",
+        severity: "error"
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Busca os dados da prova
+      const examData = exams.find((e) => e.id.toString() === examId);
+      if (!examData) {
+        throw new Error("Prova não encontrada");
+      }
+
+      // Garante que o examData tenha a estrutura correta para o CorrectionService
+      const examForCorrection = {
+        id: examData.id.toString(),
+        title: examData.title || selectedExam,
+        date: examData.date || '',
+        durationMinutes: examData.durationMinutes || 0
+      };
+
+      // Busca os estudantes com exames para esta prova
+      const studentsResponse = await ExamsService.getStudentsWithExamsForClass(
+        classID,
+        Number(examId)
+      );
+
+      // A API retorna { data: [...] } ou array direto
+      const studentsData = studentsResponse?.data || studentsResponse;
+
+      if (!studentsData || !Array.isArray(studentsData) || studentsData.length === 0) {
+        setAlertConfig({
+          open: true,
+          message: "Nenhum estudante encontrado para esta prova.",
+          severity: "warning"
+        });
+        return;
+      }
+
+      // Converte para o formato esperado pelo CorrectionService (Student interface)
+      const students = studentsData.map((s: any) => ({
+        cpf: s.cpf || s.studentCPF,
+        name: s.studentName || s.name || '',
+        email: s.email || s.studentEmail || ''
+      }));
+
+      // Usa o CorrectionService para corrigir questões fechadas
+      await CorrectionService.correctAllExams(students, examForCorrection);
+
+      setAlertConfig({
+        open: true,
+        message: "Questões fechadas corrigidas com sucesso!",
+        severity: "success"
+      });
+
+      // Recarrega os dados
+      await handleExamSelect(selectedExam);
+    } catch (err) {
+      setAlertConfig({
+        open: true,
+        message: err instanceof Error ? err.message : "Erro ao corrigir questões fechadas",
+        severity: "error"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // opções do dropdown (somente strings)
   const dropdownOptions = useMemo(() => {
     return ["Todas as provas", ...exams.map((e) => e.title)];
@@ -291,67 +503,124 @@ export default function ExamPage() {
   return (
     <div className="exam-page">
       <Header />
-      <div
-        className="top-controls"
-        style={{ display: "flex", gap: "15px", alignItems: "center" }}
-      >
-        <input
-          type="text"
-          value={classID || ""}
-          readOnly
-          style={{
-            padding: "8px",
-            borderRadius: "6px",
-            border: "1px solid #ccc",
-            width: `${(classID?.length || 10) + 2}ch`,
-            backgroundColor: "#f5f5f5",
-          }}
-        />
+      <div className="top-controls">
+        <div className="top-left">
+          <div className="top-left-row">
+            <input
+              type="text"
+              value={classID || ""}
+              readOnly
+              style={{
+                padding: "8px",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                width: `${(classID?.length || 10) + 2}ch`,
+                backgroundColor: "#f5f5f5",
+              }}
+            />
 
-        <Dropdown
-          subjects={dropdownOptions}
-          onSelect={handleExamSelect}
-          initialText={selectedExam}
-        />
-
-        {selectedExam !== "Todas as provas" && (
-          <Button
-            variant="outlined"
-            color="primary"
-            startIcon={<FileDownloadIcon />}
-            onClick={handleOpenPdfDialog}
-            style={{ marginLeft: "10px", height: "40px", textTransform: "none" }}
-          >
-            Baixar Lote
-          </Button>
-        )}
-
-        <div style={{ marginLeft: "auto" }}>
-          {/* Botão alinhado à direita */}
-          <div style={{ marginLeft: "auto", display: "flex", gap: "10px" }}>
-            {/* Botão de deletar - só aparece quando uma prova específica está selecionada */}
-            {selectedExam !== "Todas as provas" && (
-              <CustomButton
-                label="Deletar Prova"
-                onClick={handleDeleteExam}
-                data-testid="delete-exam-button"
-                style={{
-                  backgroundColor: "#dc3545",
-                  color: "white",
-                }}
-                disabled={loading}
-              />
-            )}
-
-            <CustomButton
-              label="Criar Prova"
-              onClick={() => setPopupOpen(true)}
-              data-testid="open-create-exam"
+            <Dropdown
+              subjects={dropdownOptions}
+              onSelect={handleExamSelect}
+              initialText={selectedExam}
+              data-testid="exam-dropdown"
             />
           </div>
+
+          {selectedExam !== "Todas as provas" && (
+            <div className="top-left-row">
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<FileDownloadIcon />}
+                onClick={handleOpenPdfDialog}
+                style={{ height: "40px", textTransform: "none" }}
+              >
+                Gerar Lote
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="top-right">
+          {selectedExam !== "Todas as provas" ? (
+            <>
+              <div className="top-right-row">
+                <CustomButton
+                  label="Corrigir Fechadas"
+                  onClick={handleCorrectClosedQuestions}
+                  disabled={loading || !correctionActive}
+                  style={{
+                    backgroundColor: correctionActive ? undefined : "#cccccc",
+                  }}
+                />
+                <CustomButton
+                  label="Corrigir Abertas"
+                  onClick={handleStartAICorrection}
+                  disabled={correctionLoading || !correctionActive}
+                  data-testid="correct-open-questions-button"
+                  style={{
+                    backgroundColor: correctionActive ? undefined : "#cccccc",
+                  }}
+                />
+                <CustomButton
+                  label="Visualizar Correções"
+                  onClick={handleViewCorrections}
+                  disabled={loading}
+                  style={{
+                    backgroundColor: "#17a2b8",
+                    color: "white",
+                  }}
+                />
+              </div>
+              <div className="top-right-row">
+                <CustomButton
+                  label="Deletar Prova"
+                  onClick={handleDeleteExam}
+                  data-testid="delete-exam-button"
+                  style={{
+                    backgroundColor: "#dc3545",
+                    color: "white",
+                  }}
+                  disabled={loading}
+                />
+                <CustomButton
+                  label="Criar Prova"
+                  onClick={() => setPopupOpen(true)}
+                  data-testid="open-create-exam"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="top-right-row">
+              <CustomButton
+                label="Criar Prova"
+                onClick={() => setPopupOpen(true)}
+                data-testid="open-create-exam"
+              />
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Mensagem de erro de validação */}
+      {errorMessage && (
+        <div
+          data-testid="error-message"
+          style={{
+            padding: "12px",
+            margin: "10px 0",
+            backgroundColor: "#fee",
+            border: "1px solid #fcc",
+            borderRadius: "6px",
+            color: "#c33",
+          }}
+        >
+          {errorMessage}
+        </div>
+      )}
+
+      {/* TABELA */}
       {tableLoading ? (
         <p style={{ padding: "20px", textAlign: "center" }}>Carregando...</p>
       ) : rows.length === 0 ? (
@@ -370,22 +639,59 @@ export default function ExamPage() {
           onCorrectionFinished={handleExamSelect}
         />
       )}
+
+      {/* POPUP Criar Prova */}
       <ExamCreatePopup
         isOpen={popupOpen}
         onClose={() => setPopupOpen(false)}
         onSubmit={handleCreateExam}
         loading={loading}
       />
+
+      {/* Modal de Seleção de Modelo */}
+      <ModelSelectionModal
+        isOpen={modelSelectionModalOpen}
+        onClose={() => {
+          setModelSelectionModalOpen(false);
+          setErrorMessage("");
+        }}
+        onSelect={handleModelSelect}
+        selectedModel={selectedModel}
+      />
+
+      {/* Modal de Sucesso */}
+      {correctionResult && (
+        <SuccessModal
+          isOpen={successModalOpen}
+          onClose={() => {
+            setSuccessModalOpen(false);
+            setCorrectionResult(null);
+          }}
+          model={correctionResult.model || selectedModel}
+          estimatedTime={correctionResult.estimatedTime || ""}
+          totalStudentExams={correctionResult.totalResponses || 0}
+          totalOpenQuestions={correctionResult.totalOpenQuestions || 0}
+          queuedMessages={correctionResult.queuedMessages || 0}
+        />
+      )}
+
       {classID && (
         <GeneratePDFButton
           open={pdfDialogOpen}
           onClose={() => setPdfDialogOpen(false)}
           examId={selectedExamIdForPdf}
           classId={classID}
-          defaultQuantity={rows.length > 0 ? rows.length : 30}
+          defaultQuantity={totalStudents > 0 ? totalStudents : 30}
           onSuccess={loadAllData}
         />
       )}
+
+      {/* Modal de Visualização de Correções */}
+      <CorrectionsViewModal
+        isOpen={correctionsViewModalOpen}
+        onClose={() => setCorrectionsViewModalOpen(false)}
+        examId={selectedExam !== "Todas as provas" ? Number(getExamIdByTitle(selectedExam) || 0) : null}
+      />
 
       <Alert //Alerta para criação da prova com exito ou não
         data-testid={alertConfig.severity === "success" ? "alert-success" : "alert-error"}

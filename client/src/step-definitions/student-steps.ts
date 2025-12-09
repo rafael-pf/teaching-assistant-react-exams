@@ -21,9 +21,27 @@ const serverUrl = 'http://localhost:3005';
 
 // Test data to clean up
 let testStudentCPF: string;
+let testQuestionText: string | null = null;
+
+const fetchAllQuestions = async (): Promise<any[]> => {
+  const response = await fetch(`${serverUrl}/api/questions`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch questions for cleanup');
+  }
+  const body = await response.json();
+  return Array.isArray(body.data) ? body.data : [];
+};
+
+const deleteQuestionByText = async (questionText: string): Promise<void> => {
+  const allQuestions = await fetchAllQuestions();
+  const target = allQuestions.find((question: any) => (question.question || '').trim() === questionText.trim());
+  if (target) {
+    await fetch(`${serverUrl}/api/questions/${target.id}`, { method: 'DELETE' });
+  }
+};
 
 Before({ tags: '@gui' }, async function () {
-  browser = await launch({ 
+  browser = await launch({
     headless: false, // Set to true for CI/CD
     slowMo: 50 // Slow down actions for visibility
   });
@@ -38,7 +56,7 @@ After({ tags: '@gui' }, async function () {
       // Navigate to Students area
       await page.goto(baseUrl);
       await page.waitForSelector('.students-list table', { timeout: 5000 });
-      
+
       // Look for our test student in the table and delete it if found
       const studentRows = await page.$$('[data-testid^="student-row-"]');
       for (const row of studentRows) {
@@ -52,7 +70,7 @@ After({ tags: '@gui' }, async function () {
               console.log(`GUI cleanup: Confirming deletion dialog: ${dialog.message()}`);
               await dialog.accept(); // Confirm deletion
             });
-            
+
             // Click the delete button for this student
             const deleteButton = await row.$(`[data-testid="delete-student-${cpf}"]`);
             if (deleteButton) {
@@ -69,7 +87,18 @@ After({ tags: '@gui' }, async function () {
       console.log('GUI cleanup: Student may not exist or GUI unavailable');
     }
   }
-  
+
+  if (testQuestionText) {
+    try {
+      await deleteQuestionByText(testQuestionText);
+      console.log(`GUI cleanup: Removed test question "${testQuestionText}"`);
+    } catch (error) {
+      console.log('GUI cleanup: Question may not exist or server unavailable');
+    } finally {
+      testQuestionText = null;
+    }
+  }
+
   if (browser) {
     await browser.close();
   }
@@ -94,11 +123,11 @@ Given('the server is available', async function () {
 Given('there is no student with CPF {string} in the system', async function (cpf: string) {
   testStudentCPF = cpf;
   const formattedCPF = formatCPF(cpf);
-  
+
   // Navigate to the application and check if student exists through GUI
   await page.goto(baseUrl);
   await page.waitForSelector('.students-list', { timeout: 10000 });
-  
+
   // Try to find and delete the student if it exists (cleanup before test)
   const studentRows = await page.$$('[data-testid^="student-row-"]');
   for (const row of studentRows) {
@@ -113,7 +142,7 @@ Given('there is no student with CPF {string} in the system', async function (cpf
           console.log(`GUI cleanup: Confirming deletion dialog: ${dialog.message()}`);
           await dialog.accept(); // Confirm deletion
         });
-        
+
         const deleteButton = await row.$(`[data-testid="delete-student-${displayedCPF}"]`);
         if (deleteButton) {
           await deleteButton.click();
@@ -125,11 +154,11 @@ Given('there is no student with CPF {string} in the system', async function (cpf
       }
     }
   }
-  
+
   // Verify student doesn't exist by checking the GUI
   await page.reload(); // Refresh to ensure clean state
   await page.waitForSelector('.students-list', { timeout: 5000 });
-  
+
   const updatedRows = await page.$$('[data-testid^="student-row-"]');
   for (const row of updatedRows) {
     const cpfCell = await row.$('[data-testid="student-cpf"]');
@@ -147,28 +176,28 @@ When('I navigate to the Students area', async function () {
   const studentsTab = await page.$('[data-testid="students-tab"]');
   if (studentsTab) {
     const isActive = await page.evaluate(el => el?.classList.contains('active'), studentsTab);
-    
+
     if (!isActive) {
       await studentsTab.click();
     }
   }
-  
+
   // Wait for the student form to be visible
   await page.waitForSelector('[data-testid="student-form"]', { timeout: 5000 });
 });
 
 When('I provide the student information:', async function (dataTable: DataTable) {
   const data = dataTable.rowsHash();
-  
+
   // Fill in the name field using semantic ID
   await page.waitForSelector('#name');
   await page.click('#name');
   await page.type('#name', data.name);
-  
+
   // Fill in the CPF field using semantic ID
   await page.click('#cpf');
   await page.type('#cpf', data.cpf);
-  
+
   // Fill in the email field using semantic ID
   await page.click('#email');
   await page.type('#email', data.email);
@@ -178,9 +207,9 @@ When('I send the student information', async function () {
   // Click the submit button using semantic test ID
   const submitButton = await page.$('[data-testid="submit-student-button"]');
   expect(submitButton).toBeTruthy();
-  
+
   await submitButton?.click();
-  
+
   // Wait for the information to be processed and student to appear
   await new Promise(resolve => setTimeout(resolve, 2000));
 });
@@ -188,11 +217,11 @@ When('I send the student information', async function () {
 Then('I should see {string} in the student list', async function (studentName: string) {
   // Wait for the student list to update
   await page.waitForSelector('.students-list table', { timeout: 10000 });
-  
+
   // Find the student row that matches our test student's CPF and verify the name
   const studentRows = await page.$$('[data-testid^="student-row-"]');
   let foundStudent = null;
-  
+
   for (const row of studentRows) {
     const cpfCell = await row.$('[data-testid="student-cpf"]');
     if (cpfCell) {
@@ -203,9 +232,9 @@ Then('I should see {string} in the student list', async function (studentName: s
       }
     }
   }
-  
+
   expect(foundStudent).toBeTruthy();
-  
+
   // Verify the name matches exactly for this specific student
   const nameCell = await foundStudent!.$('[data-testid="student-name"]');
   const actualName = await page.evaluate(el => el.textContent, nameCell!);
@@ -215,11 +244,11 @@ Then('I should see {string} in the student list', async function (studentName: s
 Then('the student should have CPF {string}', async function (expectedCPF: string) {
   // Wait for the student list to update
   await page.waitForSelector('.students-list table', { timeout: 10000 });
-  
+
   // Find all student information from the current test student
   const studentRows = await page.$$('[data-testid^="student-row-"]');
   let foundStudent = null;
-  
+
   // First, find the student row that matches our test CPF
   for (const row of studentRows) {
     const cpfCell = await row.$('[data-testid="student-cpf"]');
@@ -231,9 +260,9 @@ Then('the student should have CPF {string}', async function (expectedCPF: string
       }
     }
   }
-  
+
   expect(foundStudent).toBeTruthy();
-  
+
   // Verify the CPF matches exactly
   const cpfCell = await foundStudent!.$('[data-testid="student-cpf"]');
   const actualCPF = await page.evaluate(el => el.textContent, cpfCell!);
@@ -243,11 +272,11 @@ Then('the student should have CPF {string}', async function (expectedCPF: string
 Then('the student should have email {string}', async function (expectedEmail: string) {
   // Wait for the student list to update
   await page.waitForSelector('.students-list table', { timeout: 10000 });
-  
+
   // Find the student row that matches our test student's CPF
   const studentRows = await page.$$('[data-testid^="student-row-"]');
   let foundStudent = null;
-  
+
   for (const row of studentRows) {
     const cpfCell = await row.$('[data-testid="student-cpf"]');
     if (cpfCell) {
@@ -258,11 +287,107 @@ Then('the student should have email {string}', async function (expectedEmail: st
       }
     }
   }
-  
+
   expect(foundStudent).toBeTruthy();
-  
+
   // Verify the email matches exactly for this specific student
   const emailCell = await foundStudent!.$('[data-testid="student-email"]');
   const actualEmail = await page.evaluate(el => el.textContent, emailCell!);
   expect(actualEmail).toBe(expectedEmail);
+});
+
+Given('there is no question with text {string} in the system', async function (questionText: string) {
+  testQuestionText = questionText;
+  await deleteQuestionByText(questionText);
+});
+
+When('I navigate to the Questions area', async function () {
+  await page.waitForSelector('[data-testid="questions-tab"]', { timeout: 10000 });
+  const questionsTab = await page.$('[data-testid="questions-tab"]');
+  if (!questionsTab) {
+    throw new Error('Questions tab not found');
+  }
+
+  const isActive = await page.evaluate(el => el.classList.contains('active'), questionsTab);
+  if (!isActive) {
+    await questionsTab.click();
+  }
+
+  await page.waitForSelector('[data-testid="question-form"]', { timeout: 10000 });
+});
+
+When('I fill the question form with:', async function (dataTable: DataTable) {
+  const data = dataTable.rowsHash();
+  const questionType = (data.type || 'open').toLowerCase();
+
+  if (data.question) {
+    await page.waitForSelector('#question-text', { timeout: 5000 });
+    await page.click('#question-text', { clickCount: 3 });
+    await page.type('#question-text', data.question);
+    testQuestionText = data.question;
+  }
+
+  if (data.topic) {
+    await page.click('#question-topic', { clickCount: 3 });
+    await page.type('#question-topic', data.topic);
+  }
+
+  await page.select('#question-type', questionType);
+
+  if (questionType === 'open') {
+    if (data.answer) {
+      await page.waitForSelector('#question-answer', { timeout: 5000 });
+      await page.click('#question-answer', { clickCount: 3 });
+      await page.type('#question-answer', data.answer);
+    }
+  } else {
+    const optionEntries = Object.entries(data)
+      .filter(([key]) => key.toLowerCase().startsWith('option'))
+      .sort(([a], [b]) => a.localeCompare(b));
+
+    for (const [key, value] of optionEntries) {
+      const index = parseInt(key.replace(/[^0-9]/g, ''), 10);
+      if (Number.isNaN(index) || !value) continue;
+      const selector = `.options-list input[placeholder="Option ${index}"]`;
+      await page.waitForSelector(selector, { timeout: 5000 });
+      await page.click(selector, { clickCount: 3 });
+      await page.type(selector, value as string);
+    }
+
+    const correctIndex = parseInt(String(data.correct || data.correctOption || '1'), 10) || 1;
+    const checkboxSelector = `.options-list .option-item:nth-child(${correctIndex}) input[type="checkbox"]`;
+    const checkbox = await page.$(checkboxSelector);
+    if (checkbox) {
+      const isChecked = await page.evaluate(el => (el as HTMLInputElement).checked, checkbox);
+      if (!isChecked) {
+        await checkbox.click();
+      }
+    }
+  }
+});
+
+When('I submit the question form', async function () {
+  const submitButton = await page.$('[data-testid="question-submit-button"]');
+  expect(submitButton).toBeTruthy();
+  await submitButton!.click();
+  await new Promise(resolve => setTimeout(resolve, 1500));
+});
+
+Then('I should see {string} in the question bank list', async function (questionText: string) {
+  await page.waitForSelector('[data-testid="questions-table"] tbody', { timeout: 10000 });
+  const rows = await page.$$('[data-testid^="question-row-"]');
+  let found = false;
+
+  for (const row of rows) {
+    const questionCell = await row.$('[data-testid="question-text"]');
+    if (questionCell) {
+      const text = await page.evaluate(el => el.textContent?.trim() || '', questionCell);
+      if (text === questionText) {
+        found = true;
+        break;
+      }
+    }
+  }
+
+  expect(found).toBeTruthy();
 });

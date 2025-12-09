@@ -361,6 +361,40 @@ export const triggerSaveResponses = (): void => {
   });
 };
 
+// Helpers para responses (substituem o antigo studentExam)
+export const getResponsesByExamId = (examId: number): any[] => {
+  return responses.filter((r) => r.examId === examId);
+};
+
+export const updateResponseAnswerScore = (
+  responseId: number,
+  questionId: number,
+  score: number,
+  answerText?: string
+): boolean => {
+  const resp = responses.find((r) => r.id === responseId);
+  if (!resp || !Array.isArray(resp.answers)) return false;
+
+  const answer = resp.answers.find((a: any) => a.questionId === questionId);
+  if (!answer) return false;
+
+  if (answerText !== undefined) {
+    answer.answer = answerText;
+  }
+  answer.grade = Math.max(0, Math.min(100, score));
+  triggerSaveResponses();
+  return true;
+};
+
+export const getQuestionCorrectAnswer = (questionId: number): string => {
+  const question = questionsManager.getQuestionById(questionId);
+  if (!question) return '';
+  if (question.type === 'open') {
+    return question.answer || '';
+  }
+  return question.options?.find((o) => o.isCorrect)?.option || '';
+};
+
 // Helper function to clean CPF
 export const cleanCPF = (cpf: string): string => {
   return cpf.replace(/[.-]/g, '');

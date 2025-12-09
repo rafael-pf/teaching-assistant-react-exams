@@ -2,23 +2,23 @@ import { Router, Request, Response } from 'express';
 import { AICorrectionRequest, AIModel } from '../types/AIModel';
 import { AIServiceFactory } from '../services/ai/AIServiceFactory';
 import { IAIService } from '../services/ai/IAIService';
-import { examsManager, triggerSaveStudentsExams } from '../services/dataService';
+import { getQuestionCorrectAnswer, updateResponseAnswerScore, triggerSaveResponses } from '../services/dataService';
 import { geminiConfig } from '../config';
 
 const router = Router();
 
 /**
  * POST /api/question-ai-correction
- * Question AI correction - corrige uma questão específica de um exame de estudante
+ * Question AI correction - corrige uma questão específica de uma resposta (examId + responseId)
  * Esta rota pode ser chamada diretamente ou via webhook do QStash
  */
 router.post('/question-ai-correction', async (req: Request, res: Response) => {
   try {
-    const { id: studentExamId, model, questionId, questionText, studentAnswer, correctAnswer } = req.body;
+    const { responseId, examId, model, questionId, questionText, studentAnswer, correctAnswer } = req.body;
   
-    if (!studentExamId || !model || !questionId || !questionText || !studentAnswer || !correctAnswer) {
+    if (!responseId || !examId || !model || !questionId || !questionText || !studentAnswer || !correctAnswer) {
       return res.status(400).json({ 
-        error: 'Student exam ID, model, question ID, question text, student answer and correct answer are required' 
+        error: 'responseId, examId, model, questionId, questionText, studentAnswer e correctAnswer são obrigatórios' 
       });
     }
 
@@ -27,12 +27,9 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid model. Only Gemini 2.5 Flash is supported' });
     }
 
-    // Busca o StudentExam
-    const studentExam = examsManager.getStudentExamById(studentExamId);
-    if (!studentExam) {
-      return res.status(404).json({ error: 'Student exam not found' });
-    }
-    
+    // Opcional: garantir que existe resposta correta armazenada
+    const correctAnswerFallback = correctAnswer || getQuestionCorrectAnswer(Number(questionId));
+
     // Cria o serviço de IA
     const aiService: IAIService = AIServiceFactory.create({
       model: AIModel.GEMINI_2_5_FLASH,
@@ -53,7 +50,7 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
       questionText: questionText,
       questionType: 'open',
       studentAnswer: studentAnswer,
-      correctAnswer: correctAnswer,
+      correctAnswer: correctAnswerFallback,
       context: 'Você é um professor corrigindo uma prova. Seja justo e preciso na avaliação.'
     };
 
@@ -63,16 +60,14 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
     // Converte score de 0-10 para 0-100 (porcentagem)
     const percentageScore = (aiCorrectionResponse.score / 10) * 100;
 
-    // Atualiza o StudentExam com a pontuação (0% - 100%) que o aluno obteve na questão
-    const updated = examsManager.updateStudentExamAnswerScore(studentExamId, questionId, percentageScore);
-    
+    // Atualiza a resposta com a pontuação (0% - 100%) que o aluno obteve na questão
+    const updated = updateResponseAnswerScore(Number(responseId), Number(questionId), percentageScore, studentAnswer);
     if (!updated) {
-      // Se a resposta não existe, cria uma nova
-      examsManager.addOrUpdateStudentExamAnswer(studentExamId, questionId, studentAnswer, percentageScore);
+      return res.status(404).json({ error: 'Resposta não encontrada para atualizar a nota' });
     }
 
     // Salva as alterações
-    triggerSaveStudentsExams();
+    triggerSaveResponses();
 
     // Timeout de 1 minuto antes de retornar a resposta
     await new Promise(resolve => setTimeout(resolve, 60000)); // 60 segundos = 1 minuto
@@ -80,7 +75,8 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
     // Retorna a resposta da API de correção
     res.json({
       message: 'Question AI correction completed successfully',
-      studentExamId: studentExamId,
+      responseId: responseId,
+      examId: examId,
       questionId: questionId,
       score: percentageScore,
       isCorrect: aiCorrectionResponse.isCorrect,

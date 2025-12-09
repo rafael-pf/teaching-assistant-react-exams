@@ -10,7 +10,8 @@ import { Client } from '@upstash/qstash';
 import { qstashConfig } from '../config';
 
 export interface QStashMessage {
-  studentExamId: number;
+  responseId: number;
+  examId: number;
   questionId: number;
   questionText: string;
   studentAnswer: string;
@@ -57,7 +58,8 @@ export class QStashService {
   public async publish(message: QStashMessage): Promise<string> {
     try {
       const payload = {
-        id: message.studentExamId,
+        responseId: message.responseId,
+        examId: message.examId,
         model: message.model,
         questionId: message.questionId,
         questionText: message.questionText,

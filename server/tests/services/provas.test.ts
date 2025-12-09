@@ -94,9 +94,39 @@ defineFeature(feature, (test) => {
     });
 
     test('Retrieving all exams for a specific class', ({ given, when, then }) => {
-        given(/^the class "(.*)" has exams "(.*)" and "(.*)"$/, (arg0, arg1, arg2) => { });
-        when(/^the system requests all exams for class "(.*)"$/, (arg0) => { });
-        then(/^the system returns a list containing "(.*)" and "(.*)"$/, (arg0, arg1) => { });
+        let savedExams: any[] = [];
+        let response: any;
+
+        given(/^the class "(.*)" has exams "(.*)" and "(.*)"$/, async (className, exam1, exam2) => {
+            // Helper to create exam
+            const createExam = async (name: string) => {
+                const payload = {
+                    nomeProva: name,
+                    classId: className,
+                    quantidadeAberta: 1,
+                    quantidadeFechada: 1,
+                    questionIds: [1, 2, 3, 4]
+                };
+                return request(app).post('/api/exams').send(payload);
+            };
+
+            await createExam(exam1);
+            await createExam(exam2);
+        });
+
+        when(/^the system requests all exams for class "(.*)"$/, async (className) => {
+            response = await request(app).get(`/api/exams/class/${className}`);
+        });
+
+        then(/^the system returns a list containing "(.*)" and "(.*)"$/, (exam1, exam2) => {
+            expect(response.status).toBe(200);
+            expect(response.body.data).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ title: exam1 }),
+                    expect.objectContaining({ title: exam2 })
+                ])
+            );
+        });
     });
 
     test('Retrieving exams for a class that has no exams', ({ given, when, then, and }) => {

@@ -10,6 +10,8 @@ jest.mock('path', () => ({
 
 // Agora importa Correction DEPOIS dos mocks
 import { Correction } from '../../src/models/Correction';
+import { studentSet } from '../../src/services/dataService';
+import { Student } from '../../src/models/Student';
 
 describe('Autocorrection Service - Closed Questions', () => {
   const mockExamsPath = '../../data/exams.json';
@@ -51,6 +53,12 @@ describe('Autocorrection Service - Closed Questions', () => {
     // Reset path.join and path.resolve mocks to return the last argument
     (path.join as jest.Mock).mockImplementation((...args) => args[args.length - 1]);
     (path.resolve as jest.Mock).mockImplementation((...args) => args[args.length - 1]);
+    // Ensure student registry is clean between tests
+    try {
+      studentSet.getAllStudents().forEach(s => studentSet.removeStudent(s.getCPF()));
+    } catch (e) {
+      // ignore
+    }
   });
 
   // Helper to mock fs.readFileSync with proper file content
@@ -324,6 +332,94 @@ describe('Autocorrection Service - Closed Questions', () => {
       // Assert
       expect(result.results).toHaveLength(1);
       expect(result.results[0].finalGrade).toBeCloseTo(66.7, 1);
+    });
+  });
+
+  describe('getAnswersForExam service scenarios', () => {
+    it('returns submitted answers for an exam and resolves student names when available', () => {
+      // Arrange
+      const student1CPF = '12345678901';
+      const student2CPF = '12345678902';
+      const examId = 1;
+
+      // add only the first student to the registry to test name resolution and missing student
+      studentSet.addStudent(new Student('Vinicius', student1CPF, 'vinicius@example.com'));
+
+      const mockExamsData = {
+        exams: [createMockExam(examId, [1])],
+      };
+
+      const mockQuestionsData = {
+        questions: [createMockQuestion(1)],
+      };
+
+      const mockResponsesData = {
+        responses: [
+          createMockResponse(student1CPF, examId, [createMockAnswer(1, 'a')]),
+          createMockResponse(student2CPF, examId, [createMockAnswer(1, 'b')]),
+        ],
+      };
+
+      mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
+
+      // Act
+      const result = Correction.getAnswersForExam(examId);
+
+      // Assert
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(2);
+      const entry1 = result.find((r: any) => r.studentCPF === student1CPF);
+      const entry2 = result.find((r: any) => r.studentCPF === student2CPF);
+      expect(entry1).toBeDefined();
+      expect(entry1.name).toBe('Vinicius');
+      expect(entry1.answers[0].questionId).toBe(1);
+      expect(entry1.answers[0].grade).toBeNull();
+      expect(entry2).toBeDefined();
+      expect(entry2.name).toBe('Aluno não registrado');
+    });
+
+    it('returns graded answers when responses contain grades', () => {
+      // Arrange
+      const studentCPF = '12345678901';
+      const examId = 1;
+      studentSet.addStudent(new Student('Ana', studentCPF, 'ana@example.com'));
+
+      const mockExamsData = { exams: [createMockExam(examId, [1])] };
+      const mockQuestionsData = { questions: [createMockQuestion(1)] };
+      const mockResponsesData = {
+        responses: [
+          { ...createMockResponse(studentCPF, examId, [ { questionId: 1, answer: '1', grade: 85 } ]), grade_closed: 85 }
+        ]
+      };
+
+      mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
+
+      // Act
+      const result = Correction.getAnswersForExam(examId);
+
+      // Assert
+      expect(result).toHaveLength(1);
+      const entry = result[0];
+      expect(entry.studentCPF).toBe(studentCPF);
+      expect(entry.name).toBe('Ana');
+      expect(entry.answers[0].grade).toBe(85);
+    });
+
+    it('returns empty list when no responses exist for the exam', () => {
+      // Arrange
+      const examId = 42;
+      const mockExamsData = { exams: [createMockExam(1, [1])] };
+      const mockQuestionsData = { questions: [createMockQuestion(1)] };
+      const mockResponsesData = { responses: [] };
+
+      mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
+
+      // Act
+      const result = Correction.getAnswersForExam(examId);
+
+      // Assert
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(0);
     });
   });
 

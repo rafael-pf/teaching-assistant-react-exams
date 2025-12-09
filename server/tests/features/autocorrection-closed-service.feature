@@ -64,3 +64,32 @@ Feature: Exam autocorrection service
         And no students submitted answers
         When the system autocorrects exam "1"
         Then no grades are updated
+
+    @autocorrection-service
+    Scenario: Retrieve submitted answers for an exam (ungraded)
+        Given exam "1" has responses from students "12345678901" and "12345678902"
+        And student "12345678901" answered "a" for question "1" in exam "1"
+        And student "12345678902" answered "b" for question "1" in exam "1"
+        When the system retrieves the answers for exam "1"
+        Then the system returns a list with 2 student answers
+        And the returned entries include student CPF "12345678901" and "12345678902"
+        And names are resolved from student registry or shown as "Aluno não registrado" when missing
+
+    @autocorrection-service
+    Scenario: Retrieve submitted answers for an exam (after grading)
+        Given exam "1" has responses from student "12345678901" with graded closed answers
+        And the response record for student "12345678901" contains a closed grade of "85"
+        When the system retrieves the answers for exam "1"
+        Then the returned entry for student "12345678901" contains the closed grade "85"
+
+    @autocorrection-service
+    Scenario: Retrieve answers for non-existent exam
+        Given exam "999" does not exist
+        When the system retrieves the answers for exam "999"
+        Then the system returns an error indicating "Exam not found"
+
+    @autocorrection-service
+    Scenario: Retrieve answers when no student submitted the exam
+        Given exam "2" exists and no students submitted responses
+        When the system retrieves the answers for exam "2"
+        Then the system returns an empty list

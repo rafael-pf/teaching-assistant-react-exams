@@ -3,13 +3,14 @@ import assert from 'assert';
 import puppeteer, { Browser, Page } from 'puppeteer';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let browser: Browser | null = null;
 let page: Page | null = null;
-const downloadPath = path.resolve(__dirname, '../../downloads_test');
+const downloadPath = path.join(os.tmpdir(), 'exams_autotest');
 
 const ensurePageLoaded = async (turmaId: string) => {
     if (browser) await browser.close();

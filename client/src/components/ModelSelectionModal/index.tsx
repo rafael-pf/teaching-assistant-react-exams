@@ -55,12 +55,13 @@ export default function ModelSelectionModal({
         <p className="model-selection-description">
           Selecione o modelo de IA que será usado para corrigir as questões abertas:
         </p>
-        
+
         <div className="model-dropdown-container">
           <Dropdown
             subjects={availableModels}
             initialText={selectedModel || "Selecione um modelo"}
             onSelect={handleModelSelect}
+            data-testid="model-selection-dropdown"
           />
         </div>
 
@@ -69,11 +70,13 @@ export default function ModelSelectionModal({
             label="Cancelar"
             variant="secondary"
             onClick={onClose}
+            data-testid="model-selection-cancel-button"
           />
           <CustomButton
             label="Confirmar"
             variant="primary"
             onClick={handleConfirm}
+            data-testid="model-selection-confirm-button"
           />
         </div>
       </div>

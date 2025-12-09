@@ -28,7 +28,7 @@ export default function SuccessModal({
       isOpen={isOpen}
       onClose={onClose}
     >
-      <div className="success-modal-content">
+      <div className="success-modal-content" data-testid="success-modal-content">
         <div className="success-icon">✓</div>
         
         <p className="success-message">

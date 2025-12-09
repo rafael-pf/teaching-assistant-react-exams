@@ -558,6 +558,7 @@ export default function ExamPage() {
                   label="Corrigir Abertas"
                   onClick={handleStartAICorrection}
                   disabled={correctionLoading || !correctionActive}
+                  data-testid="correct-open-questions-button"
                   style={{
                     backgroundColor: correctionActive ? undefined : "#cccccc",
                   }}
@@ -605,6 +606,7 @@ export default function ExamPage() {
       {/* Mensagem de erro de validação */}
       {errorMessage && (
         <div
+          data-testid="error-message"
           style={{
             padding: "12px",
             margin: "10px 0",

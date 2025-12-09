@@ -218,9 +218,29 @@ defineFeature(feature, (test) => {
         });
     });
 
-    test('Attempting to delete a non-existent exam', ({ given, when, then }) => {
-        given(/^the exam "(.*)" does not exist$/, (arg0) => { });
-        when(/^the system receives a request to delete the exam "(.*)"$/, (arg0) => { });
-        then('the system returns an error indicating the exam was not found', () => { });
+    test('Attempting to delete a non-existent exam', ({ given, when, then, and }) => {
+        let response: any;
+        let classId: string;
+        let examIdToDelete: string;
+
+        given(/^the exam "(.*)" does not exist$/, (examId) => {
+            examIdToDelete = examId;
+        });
+
+        and(/^the request to delete the exam "(.*)" specifies class "(.*)"$/, (examId, className) => {
+            classId = className;
+        });
+
+        when('the system validates the rules', async () => {
+            response = await request(app).delete(`/api/exams/${examIdToDelete}?classId=${classId}`);
+        });
+
+        then('the system returns an error indicating the exam was not found', () => {
+            expect(response.status).toBe(404);
+        });
+
+        and(/^records the message "(.*)"$/, (msg) => {
+            expect(response.body.error).toBe(msg);
+        });
     });
 });

@@ -603,7 +603,7 @@ router.delete("/:examId", (req: Request, res: Response) => {
     const exam = getExamById(examIdNum);
     if (!exam) {
       return res.status(404).json({
-        error: `Exam with ID ${examIdNum} not found`,
+        error: `Prova ${examIdNum} não encontrada`,
       });
     }
 

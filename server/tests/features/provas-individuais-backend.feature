@@ -49,5 +49,7 @@ Feature: Business rules for exam creation and generation
   @service
   Scenario: Attempting to delete a non-existent exam
     Given the exam "999" does not exist
-    When the system receives a request to delete the exam "999"
+    And the request to delete the exam "999" specifies class "Engenharia de Software e Sistemas-2025-1"
+    When the system validates the rules
     Then the system returns an error indicating the exam was not found
+    And records the message "Prova 999 não encontrada"

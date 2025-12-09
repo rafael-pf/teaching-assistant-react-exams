@@ -67,10 +67,11 @@ describe('Autocorrection Service - Closed Questions', () => {
     (fs.writeFileSync as jest.Mock).mockImplementation(() => {});
   };
 
-  describe('Scenario 1: Autocorrecting closed questions in an exam', () => {
-    it('should calculate grade 100 when student answers all questions correctly', () => {
+  describe('Batch Correction: Correcting all students in an exam', () => {
+    it('should return batch results with all students when correcting an exam', () => {
       // Arrange
-      const studentCPF = '12345678901';
+      const student1CPF = '12345678901';
+      const student2CPF = '12345678902';
       const examId = 1;
       const questionIds = [1, 2];
 
@@ -84,9 +85,13 @@ describe('Autocorrection Service - Closed Questions', () => {
 
       const mockResponsesData = {
         responses: [
-          createMockResponse(studentCPF, examId, [
-            createMockAnswer(1, '1'), // Correct answer
-            createMockAnswer(2, '1'), // Correct answer
+          createMockResponse(student1CPF, examId, [
+            createMockAnswer(1, '1'), // Correct
+            createMockAnswer(2, '1'), // Correct
+          ]),
+          createMockResponse(student2CPF, examId, [
+            createMockAnswer(1, '1'), // Correct
+            createMockAnswer(2, '2'), // Incorrect
           ]),
         ],
       };
@@ -94,18 +99,23 @@ describe('Autocorrection Service - Closed Questions', () => {
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act
-      const result = Correction.correctExam(studentCPF, examId);
+      const result = Correction.correctExam(examId);
 
       // Assert
       expect(result).toBeDefined();
-      expect(result.studentCPF).toBe(studentCPF);
       expect(result.examId).toBe(examId);
-      expect(result.finalGrade).toBe(100);
+      expect(result.correctedCount).toBe(2);
+      expect(result.results).toHaveLength(2);
+      expect(result.results[0].studentCPF).toBe(student1CPF);
+      expect(result.results[0].finalGrade).toBe(100);
+      expect(result.results[1].studentCPF).toBe(student2CPF);
+      expect(result.results[1].finalGrade).toBe(50);
     });
 
-    it('should register grade in exams/students table after correction', () => {
+    it('should register all grades in responses file after correction', () => {
       // Arrange
-      const studentCPF = '12345678901';
+      const student1CPF = '12345678901';
+      const student2CPF = '12345678902';
       const examId = 1;
 
       const mockExamsData = {
@@ -118,24 +128,99 @@ describe('Autocorrection Service - Closed Questions', () => {
 
       const mockResponsesData = {
         responses: [
-          createMockResponse(studentCPF, examId, [createMockAnswer(1, '1')]),
+          createMockResponse(student1CPF, examId, [createMockAnswer(1, '1')]),
+          createMockResponse(student2CPF, examId, [createMockAnswer(1, '1')]),
         ],
       };
 
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act
-      const result = Correction.correctExam(studentCPF, examId);
+      const result = Correction.correctExam(examId);
 
       // Assert
       expect(fs.writeFileSync).toHaveBeenCalled();
-      expect(result.finalGrade).toBeGreaterThanOrEqual(0);
-      expect(result.finalGrade).toBeLessThanOrEqual(100);
+      expect(result.results.every(r => r.finalGrade >= 0 && r.finalGrade <= 100)).toBe(true);
     });
   });
 
-  describe('Scenario 2: Autocorrecting all students closed questions in an exam', () => {
-    it('should calculate grade 0 when student answers incorrectly', () => {
+  describe('Scenario 1: Batch correction of multiple students with correct answers', () => {
+    it('should calculate grade 100 for students who answer all questions correctly', () => {
+      // Arrange
+      const student1CPF = '12345678901';
+      const student2CPF = '12345678902';
+      const examId = 1;
+      const questionIds = [1, 2];
+
+      const mockExamsData = {
+        exams: [createMockExam(examId, questionIds)],
+      };
+
+      const mockQuestionsData = {
+        questions: [createMockQuestion(1), createMockQuestion(2)],
+      };
+
+      const mockResponsesData = {
+        responses: [
+          createMockResponse(student1CPF, examId, [
+            createMockAnswer(1, '1'), // Correct
+            createMockAnswer(2, '1'), // Correct
+          ]),
+          createMockResponse(student2CPF, examId, [
+            createMockAnswer(1, '1'), // Correct
+            createMockAnswer(2, '1'), // Correct
+          ]),
+        ],
+      };
+
+      mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
+
+      // Act
+      const result = Correction.correctExam(examId);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result.examId).toBe(examId);
+      expect(result.correctedCount).toBe(2);
+      expect(result.results).toHaveLength(2);
+      expect(result.results[0].finalGrade).toBe(100);
+      expect(result.results[1].finalGrade).toBe(100);
+    });
+
+    it('should persist all corrected grades to file after batch correction', () => {
+      // Arrange
+      const student1CPF = '12345678901';
+      const student2CPF = '12345678902';
+      const examId = 1;
+
+      const mockExamsData = {
+        exams: [createMockExam(examId, [1])],
+      };
+
+      const mockQuestionsData = {
+        questions: [createMockQuestion(1)],
+      };
+
+      const mockResponsesData = {
+        responses: [
+          createMockResponse(student1CPF, examId, [createMockAnswer(1, '1')]),
+          createMockResponse(student2CPF, examId, [createMockAnswer(1, '1')]),
+        ],
+      };
+
+      mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
+
+      // Act
+      const result = Correction.correctExam(examId);
+
+      // Assert
+      expect(fs.writeFileSync).toHaveBeenCalled();
+      expect(result.results.every(r => r.finalGrade >= 0 && r.finalGrade <= 100)).toBe(true);
+    });
+  });
+
+  describe('Scenario 2: Batch correction with mixed correct/incorrect answers', () => {
+    it('should calculate different grades for students with different answer accuracy', () => {
       // Arrange
       const student1CPF = '12345678901';
       const student2CPF = '12345678902';
@@ -159,17 +244,19 @@ describe('Autocorrection Service - Closed Questions', () => {
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act
-      const result1 = Correction.correctExam(student1CPF, examId);
-      const result2 = Correction.correctExam(student2CPF, examId);
+      const result = Correction.correctExam(examId);
 
       // Assert
-      expect(result1.finalGrade).toBe(0);
-      expect(result2.finalGrade).toBe(100);
+      expect(result.correctedCount).toBe(2);
+      const student1Result = result.results.find(r => r.studentCPF === student1CPF);
+      const student2Result = result.results.find(r => r.studentCPF === student2CPF);
+      expect(student1Result?.finalGrade).toBe(0);
+      expect(student2Result?.finalGrade).toBe(100);
     });
 
-    it('should handle multiple students corrections independently', () => {
+    it('should handle multiple students corrections in batch operation', () => {
       // Arrange
-      const students = ['12345678901', '12345678902'];
+      const students = ['12345678901', '12345678902', '12345678903'];
       const examId = 2;
 
       const mockExamsData = {
@@ -188,17 +275,21 @@ describe('Autocorrection Service - Closed Questions', () => {
 
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
-      // Act & Assert
-      students.forEach((cpf, idx) => {
-        const result = Correction.correctExam(cpf, examId);
-        expect(result.studentCPF).toBe(cpf);
-        expect(result.finalGrade).toBe(idx === 0 ? 100 : 0);
+      // Act
+      const result = Correction.correctExam(examId);
+
+      // Assert
+      expect(result.correctedCount).toBe(3);
+      expect(result.results).toHaveLength(3);
+      result.results.forEach((r, idx) => {
+        expect(r.studentCPF).toBe(students[idx]);
+        expect(r.finalGrade).toBe(idx === 0 ? 100 : 0);
       });
     });
   });
 
-  describe('Scenario 3: Student did not answer all closed questions in an exam', () => {
-    it('should calculate partial grade (66.7) when student answers 2 out of 3 questions', () => {
+  describe('Scenario 3: Partial answers - students answering subset of questions', () => {
+    it('should calculate partial grade when student answers subset of exam questions', () => {
       // Arrange
       const studentCPF = '12345678901';
       const examId = 1;
@@ -228,17 +319,17 @@ describe('Autocorrection Service - Closed Questions', () => {
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act
-      const result = Correction.correctExam(studentCPF, examId);
+      const result = Correction.correctExam(examId);
 
       // Assert
-      expect(result.finalGrade).toBeCloseTo(66.7, 1);
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0].finalGrade).toBeCloseTo(66.7, 1);
     });
   });
 
-  describe('Scenario 4: Student did not answer the exam', () => {
-    it('should not create grade record when student has no responses', () => {
+  describe('Scenario 4: No responses submitted for exam', () => {
+    it('should handle exam with no student responses', () => {
       // Arrange
-      const studentCPF = '12345678903';
       const examId = 1;
 
       const mockExamsData = {
@@ -250,23 +341,22 @@ describe('Autocorrection Service - Closed Questions', () => {
       };
 
       const mockResponsesData = {
-        responses: [], // No response for this student
+        responses: [], // No responses for any student
       };
 
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act & Assert
       expect(() => {
-        Correction.correctExam(studentCPF, examId);
-      }).toThrow('Answer key not found for this exam');
+        Correction.correctExam(examId);
+      }).toThrow('No responses found for this exam');
     });
   });
 
-  describe('Scenario 5: Teacher did not pass an exam to be corrected', () => {
-    it('should return error when exam is not specified', () => {
+  describe('Scenario 5: Invalid exam ID', () => {
+    it('should return error when exam does not exist', () => {
       // Arrange
-      const studentCPF = '12345678901';
-      const invalidExamId = 999; // Non-existent exam
+      const invalidExamId = 999;
 
       const mockExamsData = {
         exams: [], // No exams
@@ -284,15 +374,16 @@ describe('Autocorrection Service - Closed Questions', () => {
 
       // Act & Assert
       expect(() => {
-        Correction.correctExam(studentCPF, invalidExamId);
+        Correction.correctExam(invalidExamId);
       }).toThrow('Exam not found');
     });
   });
 
-  describe('Scenario 6: Exam was already corrected', () => {
-    it('should not recalculate grades if exam already has grades', () => {
+  describe('Scenario 6: Exam with already graded responses', () => {
+    it('should recalculate grades even if responses were previously graded', () => {
       // Arrange
-      const studentCPF = '12345678901';
+      const student1CPF = '12345678901';
+      const student2CPF = '12345678902';
       const examId = 1;
 
       const mockExamsData = {
@@ -306,8 +397,12 @@ describe('Autocorrection Service - Closed Questions', () => {
       const mockResponsesData = {
         responses: [
           {
-            ...createMockResponse(studentCPF, examId, [createMockAnswer(1, '1')]),
-            grade_closed: 100, // Already has grade
+            ...createMockResponse(student1CPF, examId, [createMockAnswer(1, '1')]),
+            grade_closed: 100, // Already has previous grade
+          },
+          {
+            ...createMockResponse(student2CPF, examId, [createMockAnswer(1, '2')]),
+            grade_closed: 50, // Already has previous grade
           },
         ],
       };
@@ -315,20 +410,19 @@ describe('Autocorrection Service - Closed Questions', () => {
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act
-      const result1 = Correction.correctExam(studentCPF, examId);
-
-      // Act again - should still work
-      mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
-      const result2 = Correction.correctExam(studentCPF, examId);
+      const result = Correction.correctExam(examId);
 
       // Assert
-      expect(result1.finalGrade).toBe(100);
-      expect(result2.finalGrade).toBe(100);
+      expect(result.correctedCount).toBe(2);
+      const student1Result = result.results.find(r => r.studentCPF === student1CPF);
+      const student2Result = result.results.find(r => r.studentCPF === student2CPF);
+      expect(student1Result?.finalGrade).toBe(100); // Recalculated
+      expect(student2Result?.finalGrade).toBe(0); // Recalculated
     });
   });
 
-  describe('Scenario 7: Exam has no answer key', () => {
-    it('should return error when exam questions have no correct answers defined', () => {
+  describe('Scenario 7: Exam with no answer key defined', () => {
+    it('should calculate grade 0 when exam questions have no correct answers', () => {
       // Arrange
       const studentCPF = '12345678901';
       const examId = 1;
@@ -339,7 +433,7 @@ describe('Autocorrection Service - Closed Questions', () => {
 
       const mockQuestionsData = {
         questions: [
-          { id: 1, type: 'closed', options: [] }, // No options = no answer key
+          { id: 1, type: 'closed', options: [] }, // No correct answer defined
           { id: 2, type: 'closed', options: [] },
         ],
       };
@@ -356,18 +450,18 @@ describe('Autocorrection Service - Closed Questions', () => {
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act
-      const result = Correction.correctExam(studentCPF, examId);
+      const result = Correction.correctExam(examId);
 
-      // Assert - If no questions with isCorrect options, grade should be 0
-      expect(result.finalGrade).toBe(0);
+      // Assert
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0].finalGrade).toBe(0);
     });
   });
 
-  describe('Scenario 8: Exam does not exist', () => {
-    it('should return error when trying to correct a non-existent exam', () => {
+  describe('Scenario 8: Non-existent exam with existing responses', () => {
+    it('should return error when exam ID does not match any exam definition', () => {
       // Arrange
-      const studentCPF = '12345678901';
-      const invalidExamId = 999;
+      const nonExistentExamId = 999;
 
       const mockExamsData = {
         exams: [
@@ -381,49 +475,23 @@ describe('Autocorrection Service - Closed Questions', () => {
       };
 
       const mockResponsesData = {
-        responses: [],
+        responses: [
+          createMockResponse('12345678901', nonExistentExamId, [createMockAnswer(1, '1')]),
+        ],
       };
 
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act & Assert
       expect(() => {
-        Correction.correctExam(studentCPF, invalidExamId);
+        Correction.correctExam(nonExistentExamId);
       }).toThrow('Exam not found');
     });
   });
 
-  describe('Scenario 9: No student submitted the exam', () => {
-    it('should not update any grades when no students submitted responses', () => {
+  describe('Edge cases: Multiple correct options per question', () => {
+    it('should handle questions with multiple correct answer options', () => {
       // Arrange
-      const examId = 1;
-
-      const mockExamsData = {
-        exams: [createMockExam(examId, [1, 2])],
-      };
-
-      const mockQuestionsData = {
-        questions: [createMockQuestion(1), createMockQuestion(2)],
-      };
-
-      const mockResponsesData = {
-        responses: [], // No responses submitted
-      };
-
-      mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
-
-      // Act & Assert - trying to correct any student for this exam should fail
-      expect(() => {
-        Correction.correctExam('12345678901', examId);
-      }).toThrow('Answer key not found for this exam');
-
-      expect(fs.writeFileSync).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('Edge cases and additional scenarios', () => {
-    it('should handle partial correct answers within a question', () => {
-      // Arrange: Multiple choice question with multiple correct options
       const studentCPF = '12345678901';
       const examId = 1;
 
@@ -456,15 +524,17 @@ describe('Autocorrection Service - Closed Questions', () => {
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act
-      const result = Correction.correctExam(studentCPF, examId);
+      const result = Correction.correctExam(examId);
 
       // Assert
-      expect(result.finalGrade).toBe(50); // 1 out of 2 correct options
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0].finalGrade).toBe(50); // 1 out of 2 correct
     });
 
-    it('should persist corrected grades to file', () => {
+    it('should persist all corrected grades to responses file', () => {
       // Arrange
-      const studentCPF = '12345678901';
+      const student1CPF = '12345678901';
+      const student2CPF = '12345678902';
       const examId = 1;
 
       const mockExamsData = {
@@ -477,14 +547,15 @@ describe('Autocorrection Service - Closed Questions', () => {
 
       const mockResponsesData = {
         responses: [
-          createMockResponse(studentCPF, examId, [createMockAnswer(1, '1')]),
+          createMockResponse(student1CPF, examId, [createMockAnswer(1, '1')]),
+          createMockResponse(student2CPF, examId, [createMockAnswer(1, '2')]),
         ],
       };
 
       mockFileSystem(mockExamsData, mockQuestionsData, mockResponsesData);
 
       // Act
-      Correction.correctExam(studentCPF, examId);
+      Correction.correctExam(examId);
 
       // Assert
       expect(fs.writeFileSync).toHaveBeenCalledWith(

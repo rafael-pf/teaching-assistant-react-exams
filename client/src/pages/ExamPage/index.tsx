@@ -8,6 +8,7 @@ import Dropdown from "../../components/DropDown";
 import ExamsService from "../../services/ExamsService";
 import ModelSelectionModal from "../../components/ModelSelectionModal";
 import SuccessModal from "../../components/SuccessModal";
+import CorrectionsViewModal from "../../components/CorrectionsViewModal";
 import AICorrectionService from "../../services/AICorrectionService";
 import CorrectionService from "../../services/CorrectionService";
 import QuestionService from "../../services/QuestionService";
@@ -57,6 +58,9 @@ export default function ExamPage() {
   // Estados para PDF
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [selectedExamIdForPdf, setSelectedExamIdForPdf] = useState<string | null>(null);
+
+  // Visualização de correções
+  const [correctionsViewModalOpen, setCorrectionsViewModalOpen] = useState(false);
 
   const [alertConfig, setAlertConfig] = useState({
     open: false,
@@ -364,8 +368,8 @@ export default function ExamPage() {
       setSuccessModalOpen(true);
     } catch (error) {
       // Erro: mostra mensagem de erro
-      const errorMsg = error instanceof Error 
-        ? error.message 
+      const errorMsg = error instanceof Error
+        ? error.message
         : "Erro ao iniciar a correção. Por favor, tente novamente.";
       setErrorMessage(errorMsg);
       setAlertConfig({
@@ -376,6 +380,32 @@ export default function ExamPage() {
     } finally {
       setCorrectionLoading(false);
     }
+  };
+
+  // -------------------------------------------
+  // Visualizar Correções
+  // -------------------------------------------
+  const handleViewCorrections = () => {
+    if (selectedExam === "Todas as provas") {
+      setAlertConfig({
+        open: true,
+        message: "Selecione uma prova específica para visualizar correções.",
+        severity: "warning"
+      });
+      return;
+    }
+
+    const examId = getExamIdByTitle(selectedExam);
+    if (!examId) {
+      setAlertConfig({
+        open: true,
+        message: "Prova não encontrada.",
+        severity: "error"
+      });
+      return;
+    }
+
+    setCorrectionsViewModalOpen(true);
   };
 
   // -------------------------------------------
@@ -426,7 +456,7 @@ export default function ExamPage() {
 
       // A API retorna { data: [...] } ou array direto
       const studentsData = studentsResponse?.data || studentsResponse;
-      
+
       if (!studentsData || !Array.isArray(studentsData) || studentsData.length === 0) {
         setAlertConfig({
           open: true,
@@ -473,48 +503,49 @@ export default function ExamPage() {
   return (
     <div className="exam-page">
       <Header />
-      <div
-        className="top-controls"
-        style={{ display: "flex", gap: "15px", alignItems: "center" }}
-      >
-        <input
-          type="text"
-          value={classID || ""}
-          readOnly
-          style={{
-            padding: "8px",
-            borderRadius: "6px",
-            border: "1px solid #ccc",
-            width: `${(classID?.length || 10) + 2}ch`,
-            backgroundColor: "#f5f5f5",
-          }}
-        />
+      <div className="top-controls">
+        <div className="top-left">
+          <div className="top-left-row">
+            <input
+              type="text"
+              value={classID || ""}
+              readOnly
+              style={{
+                padding: "8px",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                width: `${(classID?.length || 10) + 2}ch`,
+                backgroundColor: "#f5f5f5",
+              }}
+            />
 
-        <Dropdown
-          subjects={dropdownOptions}
-          onSelect={handleExamSelect}
-          initialText={selectedExam}
-          data-testid="exam-dropdown"
-        />
+            <Dropdown
+              subjects={dropdownOptions}
+              onSelect={handleExamSelect}
+              initialText={selectedExam}
+              data-testid="exam-dropdown"
+            />
+          </div>
 
-        {selectedExam !== "Todas as provas" && (
-          <Button
-            variant="outlined"
-            color="primary"
-            startIcon={<FileDownloadIcon />}
-            onClick={handleOpenPdfDialog}
-            style={{ marginLeft: "10px", height: "40px", textTransform: "none" }}
-          >
-            Gerar Lote
-          </Button>
-        )}
+          {selectedExam !== "Todas as provas" && (
+            <div className="top-left-row">
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<FileDownloadIcon />}
+                onClick={handleOpenPdfDialog}
+                style={{ height: "40px", textTransform: "none" }}
+              >
+                Gerar Lote
+              </Button>
+            </div>
+          )}
+        </div>
 
-        <div style={{ marginLeft: "auto" }}>
-          {/* Botão alinhado à direita */}
-          <div style={{ marginLeft: "auto", display: "flex", gap: "10px" }}>
-            {/* Botões de correção - só aparecem quando uma prova específica está selecionada */}
-            {selectedExam !== "Todas as provas" && (
-              <>
+        <div className="top-right">
+          {selectedExam !== "Todas as provas" ? (
+            <>
+              <div className="top-right-row">
                 <CustomButton
                   label="Corrigir Fechadas"
                   onClick={handleCorrectClosedQuestions}
@@ -531,29 +562,43 @@ export default function ExamPage() {
                     backgroundColor: correctionActive ? undefined : "#cccccc",
                   }}
                 />
-              </>
-            )}
-
-            {/* Botão de deletar - só aparece quando uma prova específica está selecionada */}
-            {selectedExam !== "Todas as provas" && (
+                <CustomButton
+                  label="Visualizar Correções"
+                  onClick={handleViewCorrections}
+                  disabled={loading}
+                  style={{
+                    backgroundColor: "#17a2b8",
+                    color: "white",
+                  }}
+                />
+              </div>
+              <div className="top-right-row">
+                <CustomButton
+                  label="Deletar Prova"
+                  onClick={handleDeleteExam}
+                  data-testid="delete-exam-button"
+                  style={{
+                    backgroundColor: "#dc3545",
+                    color: "white",
+                  }}
+                  disabled={loading}
+                />
+                <CustomButton
+                  label="Criar Prova"
+                  onClick={() => setPopupOpen(true)}
+                  data-testid="open-create-exam"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="top-right-row">
               <CustomButton
-                label="Deletar Prova"
-                onClick={handleDeleteExam}
-                data-testid="delete-exam-button"
-                style={{
-                  backgroundColor: "#dc3545",
-                  color: "white",
-                }}
-                disabled={loading}
+                label="Criar Prova"
+                onClick={() => setPopupOpen(true)}
+                data-testid="open-create-exam"
               />
-            )}
-
-            <CustomButton
-              label="Criar Prova"
-              onClick={() => setPopupOpen(true)}
-              data-testid="open-create-exam"
-            />
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -638,6 +683,13 @@ export default function ExamPage() {
           onSuccess={loadAllData}
         />
       )}
+
+      {/* Modal de Visualização de Correções */}
+      <CorrectionsViewModal
+        isOpen={correctionsViewModalOpen}
+        onClose={() => setCorrectionsViewModalOpen(false)}
+        examId={selectedExam !== "Todas as provas" ? Number(getExamIdByTitle(selectedExam) || 0) : null}
+      />
 
       <Alert //Alerta para criação da prova com exito ou não
         data-testid={alertConfig.severity === "success" ? "alert-success" : "alert-error"}

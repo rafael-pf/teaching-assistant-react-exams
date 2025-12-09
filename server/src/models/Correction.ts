@@ -62,32 +62,38 @@ export class Correction {
     const results: Array<{ studentCPF: string; examId: number; finalGrade: number }> = [];
 
     studentResponses.forEach((response: ResponseItem) => {
+      // Compute only the closed questions that belong to this exam (the answer key)
+      const closedQuestionIds: number[] = (exam.questions || []).filter((qid: number) => {
+        const q = questionsData.questions.find((a: Question) => a.id === qid);
+        return q && q.type === 'closed';
+      });
+
+      const totalQuestions = closedQuestionIds.length;
       let gradeSum = 0;
-      let totalQuestions = exam.questions.length;
 
-      response.answers.forEach((studentAnswer) => {
-        let totalCorrectOpt = 0;
-        let correctCount = 0;
-
+      // For each closed question in the exam, compute the student's score (0 if no answer)
+      closedQuestionIds.forEach((questionId) => {
         const question = questionsData.questions.find(
-          (a: Question) => a.id === studentAnswer.questionId && a.type === "closed"
+          (a: Question) => a.id === questionId && a.type === 'closed'
         );
 
         if (!question) return;
 
-        question.options.forEach((opt: Options) => {
-          if (opt.isCorrect) {
-            totalCorrectOpt++;
-          }
+        const studentAnswer = response.answers.find((sa: Answer) => sa.questionId === questionId);
 
-          if (opt.isCorrect && opt.id.toString() === studentAnswer.answer) {
+        let totalCorrectOpt = 0;
+        let correctCount = 0;
+
+        (question.options || []).forEach((opt: Options) => {
+          if (opt.isCorrect) totalCorrectOpt++;
+          if (studentAnswer && opt.isCorrect && opt.id.toString() === String(studentAnswer.answer)) {
             correctCount++;
           }
         });
 
         const questionGrade = totalCorrectOpt > 0 ? (correctCount / totalCorrectOpt) * 100 : 0;
         gradeSum += questionGrade;
-        studentAnswer.grade = questionGrade;
+        if (studentAnswer) studentAnswer.grade = questionGrade;
       });
 
       const finalGrade = totalQuestions > 0 ? (gradeSum / totalQuestions) : 0;

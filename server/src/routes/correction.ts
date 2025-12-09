@@ -19,4 +19,16 @@ router.post("/correct/:studentCPF/:examId", (req, res) => {
   }
 });
 
+router.get("/grades/:examId", (req, res) => {
+  try {
+    const { examId } = req.params;
+
+    const grades = Correction.getAnswersForExam(Number(examId));
+
+    res.json(grades);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 export default router;

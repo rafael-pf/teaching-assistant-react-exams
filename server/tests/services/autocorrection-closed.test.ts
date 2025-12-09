@@ -1,12 +1,15 @@
-import { Correction } from '../../src/models/Correction';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Mock fs module
+// Mock ANTES de qualquer outra importação
 jest.mock('fs');
 jest.mock('path', () => ({
-  join: jest.fn((...args) => args[args.length - 1]), // Return last argument (the filename)
-}))
+  join: jest.fn((...args) => args[args.length - 1]),
+  resolve: jest.fn((...args) => args[args.length - 1]),
+}));
+
+// Agora importa Correction DEPOIS dos mocks
+import { Correction } from '../../src/models/Correction';
 
 describe('Autocorrection Service - Closed Questions', () => {
   const mockExamsPath = '../../data/exams.json';
@@ -45,8 +48,9 @@ describe('Autocorrection Service - Closed Questions', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset path.join mock to return the last argument
+    // Reset path.join and path.resolve mocks to return the last argument
     (path.join as jest.Mock).mockImplementation((...args) => args[args.length - 1]);
+    (path.resolve as jest.Mock).mockImplementation((...args) => args[args.length - 1]);
   });
 
   // Helper to mock fs.readFileSync with proper file content

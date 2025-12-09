@@ -7,9 +7,10 @@ import {
   getStudentsWithExamsForClass,
   getExamsForClass,
   addExam,
-  getNextExamId,
   triggerSaveExams,
   generateStudentExams,
+  getGenerationById,
+  getGenerationQuestions,
   getQuestionById,
   addExamGeneration,
   getGenerationsForExam,
@@ -22,13 +23,10 @@ import {
   getExamById,
   examsManager,
   triggerSaveStudentsExams,
-  getNextGenerationId,
   cleanCPF,
   addStudentExam,
   questions,
-  classes,
 } from "../services/dataService";
-import { Correction } from "../models/Correction";
 
 const formatDateExtended = (dateString: string) => {
   if (!dateString) return '___ de _________________ de ______';
@@ -48,14 +46,6 @@ const formatDateExtended = (dateString: string) => {
 };
 
 const router = Router();
-
-// ... (existing code remains unchanged up to POST handler) ...
-// Instead of replacing huge chunk, let's target specific import and the validation block. 
-// But the tool requires contiguous block. 
-// I will split this into two edits if needed, but 'replace_file_content' is safer with one block if possible or using multi if non-contiguous.
-// The imports are at line 25, the validation is at line 455.
-// I should use multi_replace_file_content.
-
 
 /**
  * Gera o documento PDF (Visual)
@@ -205,7 +195,7 @@ const handleGetExamZIP = async (req: Request, res: Response) => {
     const formattedDate = formatDateExtended(date as string);
 
     const timestamp = new Date();
-    const generationId = getNextGenerationId();
+    const generationId = `${examIdNum}-${timestamp.getTime()}`;
 
     const newGenerationRecord: ExamGenerationRecord = {
       id: generationId,
@@ -217,7 +207,7 @@ const handleGetExamZIP = async (req: Request, res: Response) => {
     };
 
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="Lote_${generationId}_${examDef.title}.zip"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Lote_${examDef.title}.zip"`);
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.on('error', (err) => { throw err; });
@@ -275,7 +265,8 @@ const handleGetExamZIP = async (req: Request, res: Response) => {
             numero: idx + 1,
             questionId: q.id,
             type: q.type,
-            rightAnswer: gabarito
+            rightAnswer: gabarito,
+            question: q // persist full snapshot (including shuffled options)
           };
         })
       };
@@ -380,15 +371,11 @@ router.get("/students", (req: Request, res: Response) => {
         })
         .filter(Boolean);
 
-      const finalGrade = Correction.getGrade(studentData.studentCPF, studentData.examId);
-      // Return table row format
       return {
-        cpf: studentData.studentCPF,
         studentName: studentData.studentName,
         examID: studentData.examId,
         qtdAberta: examDef.openQuestions,
         qtdFechada: examDef.closedQuestions,
-        grade_closed: finalGrade !== null ? finalGrade : "Não corrigido",
         ativo: "Sim",
         details: examQuestions,
       };
@@ -443,6 +430,79 @@ router.get('/:id/zip', handleGetExamZIP);
 router.get('/:id/generations', handleGetGenerations);
 router.get('/:id/versions/:versionNumber', handleGetDataVersion);
 
+// GET questions by generation id (student loads exam by generation id)
+router.get('/generation/:generationId/questions', (req: Request, res: Response) => {
+  try {
+    const { generationId } = req.params;
+    const version = req.query.version ? parseInt(String(req.query.version), 10) : undefined;
+    const questions = getGenerationQuestions(generationId, version);
+    if (!questions || questions.length === 0) return res.status(404).json({ error: 'Generation or questions not found' });
+    res.json(questions);
+  } catch (error) {
+    console.error('Error fetching generation questions:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST responses for a generation id - student submits answers for a generated exam
+router.post('/generation/:generationId/responses', (req: Request, res: Response) => {
+  try {
+    const { generationId } = req.params;
+    const auth = (req.headers.authorization || '') as string;
+
+    if (!auth) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const token = auth.split(' ')[1] || '';
+    if (token.toLowerCase().includes('prof') || token.toLowerCase().includes('professor')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const generation = getGenerationsForExam(0, '') /* placeholder */;
+    // use helper to get generation by id
+    const gen = getGenerationById(generationId);
+    if (!gen) return res.status(404).json({ error: 'Generation not found' });
+
+    const { studentCpf, answers } = req.body as { studentCpf?: string; answers?: any[] };
+    if (!studentCpf || !answers || !Array.isArray(answers)) {
+      return res.status(400).json({ message: 'Invalid request payload' });
+    }
+
+    const incomplete = answers.some(a => a.answer === null || a.answer === undefined || String(a.answer).trim() === '');
+    if (incomplete) {
+      return res.status(400).json({ message: 'Please answer all questions before submitting.' });
+    }
+
+    // Determine next id for studentExam
+    const allStudentExams = examsManager.getAllStudentExams ? examsManager.getAllStudentExams() : [];
+    const nextId = allStudentExams.length > 0 ? Math.max(...allStudentExams.map((se: any) => se.id)) + 1 : 1;
+
+    const studentExam = {
+      id: nextId,
+      studentCPF: cleanCPF(studentCpf),
+      examId: gen.examId,
+      generationId: generationId,
+      answers,
+    };
+
+    try {
+      addStudentExam(studentExam as any);
+      triggerSaveStudentsExams();
+      return res.status(201).json({ message: 'Response submitted successfully', data: studentExam });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'StudentAlreadySubmitted') {
+        return res.status(409).json({ message: 'Você já respondeu essa prova' });
+      }
+      console.error('Error submitting generation responses:', err);
+      return res.status(500).json({ error: 'Failed to submit responses' });
+    }
+  } catch (error) {
+    console.error('Error in generation responses route:', error);
+    res.status(500).json({ error: 'Failed to submit responses' });
+  }
+});
+
 /**
  * POST /api/exams
  * Create a new exam
@@ -473,13 +533,6 @@ router.post("/", (req: Request, res: Response) => {
     if (!classId || typeof classId !== "string") {
       return res.status(400).json({
         error: "classId is required and must be a string",
-      });
-    }
-
-    // Validate class existence
-    if (!classes.findClassById(classId)) {
-      return res.status(400).json({
-        error: `Turma ${classId} não encontrada`,
       });
     }
 
@@ -518,8 +571,10 @@ router.post("/", (req: Request, res: Response) => {
       });
     }
 
-    // Generate sequential ID using nextId counter to prevent reuse
-    const examId = getNextExamId();
+    // Generate sequential ID
+    const allExamsGlobal = examsManager.getAllExams();
+    const maxId = allExamsGlobal.reduce((max, exam) => Math.max(max, exam.id), 0);
+    const examId = maxId + 1;
 
     // Validate that all provided question IDs exist
     const questions = getQuestionsByIds(questionIds);
@@ -604,7 +659,7 @@ router.delete("/:examId", (req: Request, res: Response) => {
     const exam = getExamById(examIdNum);
     if (!exam) {
       return res.status(404).json({
-        error: `Prova ${examIdNum} não encontrada`,
+        error: `Exam with ID ${examIdNum} not found`,
       });
     }
 
@@ -645,15 +700,15 @@ router.delete("/:examId", (req: Request, res: Response) => {
 router.get('/:examId', (req: Request, res: Response) => {
   try {
     const { examId } = req.params;
-    const examIdNum = parseInt(examId, 10);
-    let exam: any | undefined;
-    if (!isNaN(examIdNum)) {
-      exam = examsManager.getExamById(examIdNum);
-    }
-    if (!exam) {
-      // fallback: search by title
-      exam = examsManager.getAllExams().find(e => e.title === examId || String(e.id) === examId);
-    }
+        const examIdNum = parseInt(examId, 10);
+        let exam: any | undefined;
+        if (!isNaN(examIdNum)) {
+          exam = examsManager.getExamById(examIdNum);
+        }
+        if (!exam) {
+          // fallback: search by title
+          exam = examsManager.getAllExams().find(e => e.title === examId || String(e.id) === examId);
+        }
 
     if (!exam) {
       return res.status(404).json({ error: 'Exam not found' });
@@ -788,6 +843,7 @@ router.post('/:examId/responses', (req: Request, res: Response) => {
       id: nextId,
       studentCPF: cleanCPF(studentCpf),
       examId: (exam as any).id,
+      generationId: undefined,
       answers,
     };
 

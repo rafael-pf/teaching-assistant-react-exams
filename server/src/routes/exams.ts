@@ -7,6 +7,7 @@ import {
   getStudentsWithExamsForClass,
   getExamsForClass,
   addExam,
+  getNextExamId,
   triggerSaveExams,
   generateStudentExams,
   getQuestionById,
@@ -21,10 +22,13 @@ import {
   getExamById,
   examsManager,
   triggerSaveStudentsExams,
+  getNextGenerationId,
   cleanCPF,
   addStudentExam,
   questions,
+  classes,
 } from "../services/dataService";
+import { Correction } from "../models/Correction";
 
 const formatDateExtended = (dateString: string) => {
   if (!dateString) return '___ de _________________ de ______';
@@ -44,6 +48,14 @@ const formatDateExtended = (dateString: string) => {
 };
 
 const router = Router();
+
+// ... (existing code remains unchanged up to POST handler) ...
+// Instead of replacing huge chunk, let's target specific import and the validation block. 
+// But the tool requires contiguous block. 
+// I will split this into two edits if needed, but 'replace_file_content' is safer with one block if possible or using multi if non-contiguous.
+// The imports are at line 25, the validation is at line 455.
+// I should use multi_replace_file_content.
+
 
 /**
  * Gera o documento PDF (Visual)
@@ -193,7 +205,7 @@ const handleGetExamZIP = async (req: Request, res: Response) => {
     const formattedDate = formatDateExtended(date as string);
 
     const timestamp = new Date();
-    const generationId = `${examIdNum}-${timestamp.getTime()}`;
+    const generationId = getNextGenerationId();
 
     const newGenerationRecord: ExamGenerationRecord = {
       id: generationId,
@@ -205,7 +217,7 @@ const handleGetExamZIP = async (req: Request, res: Response) => {
     };
 
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="Lote_${examDef.title}.zip"`);
+    res.setHeader('Content-Disposition', `attachment; filename="Lote_${generationId}_${examDef.title}.zip"`);
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.on('error', (err) => { throw err; });
@@ -368,11 +380,15 @@ router.get("/students", (req: Request, res: Response) => {
         })
         .filter(Boolean);
 
+      const finalGrade = Correction.getGrade(studentData.studentCPF, studentData.examId);
+      // Return table row format
       return {
+        cpf: studentData.studentCPF,
         studentName: studentData.studentName,
         examID: studentData.examId,
         qtdAberta: examDef.openQuestions,
         qtdFechada: examDef.closedQuestions,
+        grade_closed: finalGrade !== null ? finalGrade : "Não corrigido",
         ativo: "Sim",
         details: examQuestions,
       };
@@ -460,6 +476,13 @@ router.post("/", (req: Request, res: Response) => {
       });
     }
 
+    // Validate class existence
+    if (!classes.findClassById(classId)) {
+      return res.status(400).json({
+        error: `Turma ${classId} não encontrada`,
+      });
+    }
+
     // Validate questionIds is provided
     if (!questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
       return res.status(400).json({
@@ -495,10 +518,8 @@ router.post("/", (req: Request, res: Response) => {
       });
     }
 
-    // Generate sequential ID
-    const allExamsGlobal = examsManager.getAllExams();
-    const maxId = allExamsGlobal.reduce((max, exam) => Math.max(max, exam.id), 0);
-    const examId = maxId + 1;
+    // Generate sequential ID using nextId counter to prevent reuse
+    const examId = getNextExamId();
 
     // Validate that all provided question IDs exist
     const questions = getQuestionsByIds(questionIds);
@@ -583,7 +604,7 @@ router.delete("/:examId", (req: Request, res: Response) => {
     const exam = getExamById(examIdNum);
     if (!exam) {
       return res.status(404).json({
-        error: `Exam with ID ${examIdNum} not found`,
+        error: `Prova ${examIdNum} não encontrada`,
       });
     }
 
@@ -624,15 +645,15 @@ router.delete("/:examId", (req: Request, res: Response) => {
 router.get('/:examId', (req: Request, res: Response) => {
   try {
     const { examId } = req.params;
-        const examIdNum = parseInt(examId, 10);
-        let exam: any | undefined;
-        if (!isNaN(examIdNum)) {
-          exam = examsManager.getExamById(examIdNum);
-        }
-        if (!exam) {
-          // fallback: search by title
-          exam = examsManager.getAllExams().find(e => e.title === examId || String(e.id) === examId);
-        }
+    const examIdNum = parseInt(examId, 10);
+    let exam: any | undefined;
+    if (!isNaN(examIdNum)) {
+      exam = examsManager.getExamById(examIdNum);
+    }
+    if (!exam) {
+      // fallback: search by title
+      exam = examsManager.getAllExams().find(e => e.title === examId || String(e.id) === examId);
+    }
 
     if (!exam) {
       return res.status(404).json({ error: 'Exam not found' });

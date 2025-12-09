@@ -1,18 +1,25 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 interface DropdownProps {
   subjects: string[];
   initialText: string;
   onSelect: (subject: string) => void;
+  'data-testid'?: string;
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
   subjects,
   initialText,
   onSelect,
+  'data-testid': dataTestId,
 }) => {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string>(initialText);
+
+  // Sync with parent component's selectedExam state
+  useEffect(() => {
+    setSelected(initialText);
+  }, [initialText]);
 
   const handleSelect = (subject: string) => {
     setSelected(subject);
@@ -24,7 +31,7 @@ const Dropdown: React.FC<DropdownProps> = ({
     <div style={{ position: "relative", width: "220px" }}>
       {/* Botão principal */}
       <button
-        data-testid="dropdown-button"
+        data-testid={dataTestId || "dropdown-button"}
         onClick={() => setOpen(!open)}
         style={{
           width: "100%",

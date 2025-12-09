@@ -15,9 +15,11 @@ export interface StudentExamRecord {
   id: number;
   studentCPF: string;
   examId: number;
+  grade?: number;
   answers: Array<{
     questionId: number;
     answer: string;
+    score?: number; // 0-100 percentage
   }>;
 }
 
@@ -28,6 +30,7 @@ export interface StudentWithExam {
   classId: string;
   examTitle: string;
   studentExamId?: number;
+  grade?: number;
   answers?: Array<{
     questionId: number;
     answer: string;
@@ -37,10 +40,40 @@ export interface StudentWithExam {
 export class Exams {
   private exams: ExamRecord[] = [];
   private studentExams: StudentExamRecord[] = [];
+  private nextId = 1;
 
   constructor(exams: ExamRecord[] = [], studentExams: StudentExamRecord[] = []) {
     this.exams = exams;
     this.studentExams = studentExams;
+    this.nextId = this.calculateNextId();
+  }
+
+  /**
+   * Calculate the next available exam ID
+   * @returns The next ID to use
+   */
+  private calculateNextId(): number {
+    if (this.exams.length === 0) {
+      return 1;
+    }
+    const maxId = this.exams.reduce((max, exam) => Math.max(max, exam.id), 0);
+    return maxId + 1;
+  }
+
+  /**
+   * Get the next exam ID and increment the counter
+   * @returns The next available exam ID
+   */
+  public getNextExamId(): number {
+    return this.nextId++;
+  }
+
+  /**
+   * Refresh the nextId counter based on current exams
+   * Should be called after loading exams from file
+   */
+  public refreshNextId(): void {
+    this.nextId = this.calculateNextId();
   }
 
   /**
@@ -82,6 +115,7 @@ export class Exams {
           classId: exam.classId,
           examTitle: exam.title,
           studentExamId: studentExam?.id,
+          grade: studentExam?.grade,
           answers: studentExam?.answers || []
         });
       });
@@ -106,6 +140,15 @@ export class Exams {
    */
   getExamById(examId: number): ExamRecord | undefined {
     return this.exams.find(exam => exam.id === examId);
+  }
+
+  /**
+   * Replace all exams
+   * @param exams - Array of exam records
+   */
+  replaceAll(exams: ExamRecord[]): void {
+    this.exams = exams;
+    this.refreshNextId();
   }
 
   /**
@@ -198,7 +241,94 @@ export class Exams {
    * @returns The student exam record or undefined
    */
   getStudentExamById(studentExamId: number): StudentExamRecord | undefined {
-    return this.studentExams.find(se => se.id === studentExamId);
+    const studentExam = this.studentExams.find(se => se.id === studentExamId);
+    return studentExam ? { ...studentExam } : undefined;
+  }
+
+  /**
+   * Find student exams by class ID
+   * @param classId - The class ID to filter by
+   * @param examIds - Array of exam IDs and classIds to filter by
+   * @returns Array of student exam records
+   */
+  findStudentExamsByClassId(
+    classId: string,
+    examIds: Array<{ id: number; classId: string }>
+  ): StudentExamRecord[] {
+    // Filter exam IDs that belong to this class
+    const validExamIds = examIds
+      .filter(e => e.classId === classId)
+      .map(e => e.id);
+
+    // Return student exams for those exam IDs
+    return this.studentExams
+      .filter(se => validExamIds.includes(se.examId))
+      .map(se => ({ ...se }));
+  }
+
+  /**
+   * Update the score of a specific answer in a student exam
+   * @param studentExamId - The student exam ID
+   * @param questionId - The question ID
+   * @param score - The score (0-100 percentage)
+   * @returns true if updated, false if not found
+   */
+  updateStudentExamAnswerScore(
+    studentExamId: number,
+    questionId: number,
+    score: number
+  ): boolean {
+    const studentExam = this.studentExams.find(se => se.id === studentExamId);
+    if (!studentExam) {
+      return false;
+    }
+
+    // Find the answer and update its score
+    const answer = studentExam.answers.find(a => a.questionId === questionId);
+    if (answer) {
+      answer.score = Math.max(0, Math.min(100, score)); // Clamp between 0 and 100
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Add or update an answer in a student exam
+   * @param studentExamId - The student exam ID
+   * @param questionId - The question ID
+   * @param answer - The answer text
+   * @param score - The score (0-100 percentage, optional)
+   * @returns true if added/updated, false if student exam not found
+   */
+  addOrUpdateStudentExamAnswer(
+    studentExamId: number,
+    questionId: number,
+    answer: string,
+    score?: number
+  ): boolean {
+    const studentExam = this.studentExams.find(se => se.id === studentExamId);
+    if (!studentExam) {
+      return false;
+    }
+
+    // Find existing answer
+    const existingAnswer = studentExam.answers.find(a => a.questionId === questionId);
+    if (existingAnswer) {
+      existingAnswer.answer = answer;
+      if (score !== undefined) {
+        existingAnswer.score = Math.max(0, Math.min(100, score));
+      }
+    } else {
+      // Add new answer
+      studentExam.answers.push({
+        questionId,
+        answer,
+        score: score !== undefined ? Math.max(0, Math.min(100, score)) : undefined
+      });
+    }
+
+    return true;
   }
 
   /**

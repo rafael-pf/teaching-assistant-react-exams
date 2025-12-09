@@ -38,6 +38,8 @@ type CollapsibleTableProps = {
   detailColumns: DetailColumn[];
   rows: GenericRow[];
   detailTitle?: string;
+  correctionActive: boolean;
+  onCorrectionFinished: (data: any) => Promise<void>;
   computeDetailRow?: (detail: any, parent: GenericRow) => any;
 };
 
@@ -47,6 +49,8 @@ function CollapsibleRow({
   detailColumns,
   detailTitle = "Details",
   computeDetailRow,
+  correctionActive,
+  onCorrectionFinished,
 }: CollapsibleTableProps & { row: GenericRow }) {
   const [open, setOpen] = React.useState(false);
 
@@ -157,6 +161,7 @@ export default function CollapsibleTable(props: CollapsibleTableProps) {
           {rows.map((row, i) => (
             <CollapsibleRow key={i} row={row} {...props} />
           ))}
+        
         </TableBody>
       </Table>
     </TableContainer>

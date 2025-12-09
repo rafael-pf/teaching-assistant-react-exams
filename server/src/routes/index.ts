@@ -3,7 +3,8 @@ import healthRoutes from './health';
 import statsRoutes from './stats';
 import examsRoutes from "./exams";
 import correctionRoutes from "./correction";
-import examPdfRoutes from './examPdf'
+import triggerAICorrectionRoutes from './trigger-ai-correction';
+import questionAICorrectionRoutes from './question-ai-correction';
 import questionsRoutes from './questions';
 
 const router = Router();
@@ -18,13 +19,13 @@ router.use(statsRoutes);
 // Question bank routes
 router.use('/questions', questionsRoutes);
 
-// Question bank routes
-router.use('/questions', questionsRoutes);
-
-// Exams routes (v1)
+// Exams routes
 router.use('/exams', examsRoutes);
 router.use(correctionRoutes);
-router.use('/exams', examPdfRoutes);
+
+// AI Correction routes
+router.use(triggerAICorrectionRoutes);
+router.use(questionAICorrectionRoutes);
 
 export default router;
 

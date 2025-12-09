@@ -3,18 +3,38 @@ import cors from 'cors';
 import { Student } from './models/Student';
 import { Class } from './models/Class';
 import routes from './routes';
+import { serverConfig, validateConfig } from './config';
 import { studentSet, classes, triggerSave, cleanCPF, loadAllData, examsManager } from './services/dataService';
 
 const app = express();
-const PORT = 3005;
+const PORT = serverConfig.port;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  exposedHeaders: ['Content-Disposition']
+}));
 app.use(express.json());
+
+// Valida configurações na inicialização
+const configErrors = validateConfig();
+if (configErrors.length > 0) {
+  console.error('❌ Erros de configuração encontrados:');
+  configErrors.forEach(error => console.error(`  - ${error}`));
+  if (serverConfig.nodeEnv === 'production') {
+    console.error('Encerrando aplicação devido a erros de configuração em produção.');
+    process.exit(1);
+  }
+}
 
 // Load existing data on startup
 loadAllData();
-console.log(`Server loaded ${examsManager.getAllExams().length} exams on startup`);
+const count = examsManager?.getAllExams?.()?.length;
+
+if (typeof count === 'number') {
+  console.log(`Server loaded ${count} exams on startup`);
+} else {
+  console.log('Server loaded (Testing Mode - Mocked DataService)');
+}
 
 // Routes
 

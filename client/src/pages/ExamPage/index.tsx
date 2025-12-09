@@ -324,7 +324,7 @@ export default function ExamPage() {
             onClick={handleOpenPdfDialog}
             style={{ marginLeft: "10px", height: "40px", textTransform: "none" }}
           >
-            Baixar Lote
+            Gerar Lote
           </Button>
         )}
 

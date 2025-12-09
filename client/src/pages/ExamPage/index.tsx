@@ -320,6 +320,7 @@ export default function ExamPage() {
           subjects={dropdownOptions}
           onSelect={handleExamSelect}
           initialText={selectedExam}
+          data-testid="exam-dropdown"
         />
 
         {selectedExam !== "Todas as provas" && (

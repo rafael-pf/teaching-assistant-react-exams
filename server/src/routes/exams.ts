@@ -25,6 +25,7 @@ import {
   cleanCPF,
   addStudentExam,
   questions,
+  classes,
 } from "../services/dataService";
 import { Correction } from "../models/Correction";
 
@@ -46,6 +47,14 @@ const formatDateExtended = (dateString: string) => {
 };
 
 const router = Router();
+
+// ... (existing code remains unchanged up to POST handler) ...
+// Instead of replacing huge chunk, let's target specific import and the validation block. 
+// But the tool requires contiguous block. 
+// I will split this into two edits if needed, but 'replace_file_content' is safer with one block if possible or using multi if non-contiguous.
+// The imports are at line 25, the validation is at line 455.
+// I should use multi_replace_file_content.
+
 
 /**
  * Gera o documento PDF (Visual)
@@ -369,7 +378,7 @@ router.get("/students", (req: Request, res: Response) => {
           };
         })
         .filter(Boolean);
-      
+
       const finalGrade = Correction.getGrade(studentData.studentCPF, studentData.examId);
       // Return table row format
       return {
@@ -463,6 +472,13 @@ router.post("/", (req: Request, res: Response) => {
     if (!classId || typeof classId !== "string") {
       return res.status(400).json({
         error: "classId is required and must be a string",
+      });
+    }
+
+    // Validate class existence
+    if (!classes.findClassById(classId)) {
+      return res.status(400).json({
+        error: `Turma ${classId} não encontrada`,
       });
     }
 
@@ -628,15 +644,15 @@ router.delete("/:examId", (req: Request, res: Response) => {
 router.get('/:examId', (req: Request, res: Response) => {
   try {
     const { examId } = req.params;
-        const examIdNum = parseInt(examId, 10);
-        let exam: any | undefined;
-        if (!isNaN(examIdNum)) {
-          exam = examsManager.getExamById(examIdNum);
-        }
-        if (!exam) {
-          // fallback: search by title
-          exam = examsManager.getAllExams().find(e => e.title === examId || String(e.id) === examId);
-        }
+    const examIdNum = parseInt(examId, 10);
+    let exam: any | undefined;
+    if (!isNaN(examIdNum)) {
+      exam = examsManager.getExamById(examIdNum);
+    }
+    if (!exam) {
+      // fallback: search by title
+      exam = examsManager.getAllExams().find(e => e.title === examId || String(e.id) === examId);
+    }
 
     if (!exam) {
       return res.status(404).json({ error: 'Exam not found' });

@@ -184,11 +184,38 @@ defineFeature(feature, (test) => {
     });
 
     test('Creating an exam for a non-existent class', ({ given, and, when, then }) => {
-        given(/^the class "(.*)" does not exist$/, (arg0) => { });
-        and(/^the request to create the exam "(.*)" specifies class "(.*)"$/, (arg0, arg1) => { });
-        when('the system validates the rules', () => { });
-        then(/^the system rejects the creation of the exam "(.*)"$/, (arg0) => { });
-        and(/^records the message "(.*)"$/, (arg0) => { });
+        let payload: any = {};
+        let response: any;
+
+        given(/^the class "(.*)" does not exist$/, (className) => {
+            // No-op: We assume the class does not exist. 
+            // Ideally we could ensure it doesn't, but for now we rely on the name being unique/unused.
+        });
+
+        and(/^the request to create the exam "(.*)" specifies class "(.*)"$/, (examTitle, className) => {
+            payload = {
+                nomeProva: examTitle,
+                classId: className,
+                quantidadeAberta: 2,
+                quantidadeFechada: 3,
+                questionIds: [1, 2, 3, 4, 5]
+            };
+        });
+
+        when('the system validates the rules', async () => {
+            response = await request(app)
+                .post('/api/exams')
+                .send(payload)
+                .set('Content-Type', 'application/json');
+        });
+
+        then(/^the system rejects the creation of the exam "(.*)"$/, (examTitle) => {
+            expect(response.status).toBe(400);
+        });
+
+        and(/^records the message "(.*)"$/, (msg) => {
+            expect(response.body.error).toBe(msg);
+        });
     });
 
     test('Attempting to delete a non-existent exam', ({ given, when, then }) => {

@@ -13,14 +13,14 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Type definitions
+// Type definitions for compatibility (used by some routes)
 export interface QuestionOption {
   id: number;
   option: string;
   isCorrect: boolean;
 }
 
-export interface Question {
+export interface QuestionInterface {
   id: number;
   question: string;
   topic: string;
@@ -53,10 +53,14 @@ export interface ExamGenerationRecord {
 // In-memory storage with file persistence
 export const studentSet = new StudentSet();
 export const classes = new Classes();
+
+// Managers for exams and questions
 export const examsManager = new Exams();
-export const questions: Question[] = [];
-export const responses: any[] = [];
 export const questionsManager = new Questions();
+
+// Compatibility arrays for routes that use them
+export const questions: QuestionInterface[] = [];
+export const responses: any[] = [];
 export const examGenerations: ExamGenerationRecord[] = [];
 
 // File paths
@@ -76,6 +80,11 @@ const ensureDataDirectory = (filePath: string): void => {
 };
 
 export const saveDataToFile = (): void => {
+  // Não salva arquivos durante testes
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+
   try {
     const data = {
       students: studentSet.getAllStudents().map(student => ({
@@ -102,9 +111,13 @@ export const saveDataToFile = (): void => {
 };
 
 export const saveExamsToFile = (): void => {
+  // Não salva arquivos durante testes
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+
   try {
     const data = examsManager.toJSON();
-
     ensureDataDirectory(examsFile);
     fs.writeFileSync(examsFile, JSON.stringify(data, null, 2), 'utf8');
   } catch (error) {
@@ -113,17 +126,30 @@ export const saveExamsToFile = (): void => {
 };
 
 export const saveQuestionsToFile = (): void => {
+  // Não salva arquivos durante testes
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+
   try {
     const data = questionsManager.toJSON();
-
     ensureDataDirectory(questionsFile);
     fs.writeFileSync(questionsFile, JSON.stringify(data, null, 2), 'utf8');
+    
+    // Keep exported `questions` array in sync
+    questions.length = 0;
+    questions.push(...questionsManager.getAllQuestions());
   } catch (error) {
     console.error('Error saving questions to file:', error);
   }
 };
 
 export const saveStudentsExamsToFile = (): void => {
+  // Não salva arquivos durante testes
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+
   try {
     const data = {
       studentsExams: examsManager.getAllStudentExams()
@@ -137,6 +163,11 @@ export const saveStudentsExamsToFile = (): void => {
 };
 
 export const saveResponsesToFile = (): void => {
+  // Não salva arquivos durante testes
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+
   try {
     const data = {
       responses: responses
@@ -213,6 +244,7 @@ export const loadExamsFromFile = (): void => {
 
       if (data.exams && Array.isArray(data.exams)) {
         examsManager.replaceAll(data.exams);
+        examsManager.refreshNextId();
       }
     }
   } catch (error) {
@@ -246,8 +278,23 @@ export const loadStudentsExamsFromFile = (): void => {
       const data = JSON.parse(fileContent);
 
       if (data.studentsExams && Array.isArray(data.studentsExams)) {
-        data.studentsExams.forEach((studentExam: StudentExamRecord) => {
-          examsManager.addStudentExam(studentExam);
+        data.studentsExams.forEach((studentExamData: any) => {
+          try {
+            const studentExamRecord: StudentExamRecord = {
+              id: studentExamData.id,
+              studentCPF: studentExamData.studentCPF,
+              examId: studentExamData.examId,
+              grade: studentExamData.grade,
+              answers: studentExamData.answers.map((a: any) => ({
+                questionId: a.questionId,
+                answer: a.answer,
+                score: a.score
+              }))
+            };
+            examsManager.addStudentExam(studentExamRecord);
+          } catch (error) {
+            console.error(`Error adding student exam ${studentExamData.id}:`, error);
+          }
         });
       }
     }
@@ -273,6 +320,11 @@ export const loadResponsesFromFile = (): void => {
 };
 
 export const saveGenerationsToFile = (): void => {
+  // Não salva arquivos durante testes
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+
   try {
     const data = { generations: examGenerations };
     const dataDir = path.dirname(generationsFile);
@@ -341,6 +393,36 @@ export const triggerSaveResponses = (): void => {
   });
 };
 
+// Helpers para responses (substituem o antigo studentExam)
+export const getResponsesByExamId = (examId: number): any[] => {
+  return responses.filter((r) => r.examId === examId);
+};
+
+export const updateResponseAnswerScore = (
+  responseId: number,
+  questionId: number,
+  score: number,
+): boolean => {
+  const resp = responses.find((r) => r.id === responseId);
+  if (!resp || !Array.isArray(resp.answers)) return false;
+
+  const answer = resp.answers.find((a: any) => a.questionId === questionId);
+  if (!answer) return false;
+
+  answer.grade = Math.max(0, Math.min(100, score));
+  triggerSaveResponses();
+  return true;
+};
+
+export const getQuestionCorrectAnswer = (questionId: number): string => {
+  const question = questionsManager.getQuestionById(questionId);
+  if (!question) return '';
+  if (question.type === 'open') {
+    return question.answer || '';
+  }
+  return question.options?.find((o) => o.isCorrect)?.option || '';
+};
+
 // Helper function to clean CPF
 export const cleanCPF = (cpf: string): string => {
   return cpf.replace(/[.-]/g, '');
@@ -351,7 +433,10 @@ export const getExamsForClass = (classId: string): ExamRecord[] => {
   return examsManager.getExamsByClassId(classId);
 };
 
-export const getStudentsWithExamsForClass = (classId: string, examId?: number): any[] => {
+export const getStudentsWithExamsForClass = (
+  classId: string,
+  examId?: number
+): any[] => {
   const classObj = classes.findClassById(classId);
   if (!classObj) return [];
   const enrolledStudents = classObj.getEnrolledStudents();
@@ -364,6 +449,7 @@ export const getExamById = (examId: number): ExamRecord | undefined => {
 
 export const addExam = (exam: ExamRecord): void => {
   examsManager.addExam(exam);
+  triggerSaveExams();
 };
 
 export const getNextExamId = (): number => {
@@ -371,11 +457,19 @@ export const getNextExamId = (): number => {
 };
 
 export const updateExam = (examId: number, updatedExam: Partial<ExamRecord>): boolean => {
-  return examsManager.updateExam(examId, updatedExam);
+  const result = examsManager.updateExam(examId, updatedExam);
+  if (result) {
+    triggerSaveExams();
+  }
+  return result;
 };
 
 export const deleteExam = (examId: number): boolean => {
-  return examsManager.deleteExam(examId);
+  const result = examsManager.deleteExam(examId);
+  if (result) {
+    triggerSaveExams();
+  }
+  return result;
 };
 
 export const addStudentExam = (studentExam: StudentExamRecord): void => {
@@ -443,13 +537,20 @@ export const addStudentExam = (studentExam: StudentExamRecord): void => {
     if ((error as Error).message === 'StudentAlreadySubmitted') {
       throw error; // rethrow so callers can handle and return 409
     }
-    console.error('Error adding student exam to responses:', error);
+    console.error('Error adding student exam:', error);
     throw error;
   }
 };
 
-export const updateStudentExamAnswers = (studentExamId: number, answers: Array<{ questionId: number; answer: string }>): boolean => {
-  return examsManager.updateStudentExamAnswers(studentExamId, answers);
+export const updateStudentExamAnswers = (
+  studentExamId: number,
+  answers: Array<{ questionId: number; answer: string }>
+): boolean => {
+  const result = examsManager.updateStudentExamAnswers(studentExamId, answers);
+  if (result) {
+    triggerSaveStudentsExams();
+  }
+  return result;
 };
 
 export const getStudentExamById = (studentExamId: number): StudentExamRecord | undefined => {
@@ -541,8 +642,10 @@ export const generateStudentExams = (examId: number, classId: string): StudentEx
         ...shuffledClosedQuestions.slice(0, exam.closedQuestions)
       ];
 
+      // Create student exam record
+      const studentExamId = Date.now() + Math.random(); // Generate unique ID
       const studentExamRecord: StudentExamRecord = {
-        id: Date.now() + Math.random(),
+        id: studentExamId,
         studentCPF: studentCPF,
         examId: examId,
         answers: selectedQuestions.map(q => ({ questionId: q.id, answer: '' })),
@@ -606,6 +709,21 @@ export function shuffleArray<T>(array: T[]): T[] {
   }
   return newArray;
 }
+
+// Helper functions for AI correction routes
+export const getStudentExamsByClassId = (classId: string): StudentExamRecord[] => {
+  const exams = examsManager.getExamsByClassId(classId);
+  const examIds = exams.map(e => ({ id: e.id, classId: e.classId }));
+  return examsManager.findStudentExamsByClassId(classId, examIds);
+};
+
+export const getOpenQuestionsForExam = (examId: number): QuestionRecord[] => {
+  const exam = examsManager.getExamById(examId);
+  if (!exam) return [];
+  
+  const allQuestions = questionsManager.getQuestionsByIds(exam.questions);
+  return allQuestions.filter(q => q.type === 'open');
+};
 
 export const getNextGenerationId = (): string => {
     if (examGenerations.length === 0) {

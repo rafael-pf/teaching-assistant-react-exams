@@ -15,7 +15,6 @@ import {
 
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import CorrectionButton from "./CorrectionButton";
 
 export type Column = {
   id: string;
@@ -85,21 +84,6 @@ function CollapsibleRow({
             {row[col.id]}
           </TableCell>
         ))}
-        {/* Actions cell: allow placing buttons or controls for each row via `row.actions` (React nodes) */}
-        <TableCell align="right" style={{ whiteSpace: "nowrap" }}>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
-            {row.actions || (
-              <CorrectionButton
-                students={row.details || []}
-                exam={row.exam}
-                label={"Corrigir fechadas"}
-                isActive={correctionActive}
-                selectedExam={row.examTitle || ''}
-                onFinished={onCorrectionFinished}
-              />
-            )}
-          </div>
-        </TableCell>
       </TableRow>
 
       {/* Parte colapsada */}
@@ -170,7 +154,6 @@ export default function CollapsibleTable(props: CollapsibleTableProps) {
                 {col.label}
               </TableCell>
             ))}
-            <TableCell align="right">Ações</TableCell>
           </TableRow>
         </TableHead>
 

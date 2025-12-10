@@ -12,8 +12,10 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
+    "@upstash/qstash": "^2.7.0",
     "archiver": "^7.0.1",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^4.18.2",
     "pdfjs-dist": "^2.16.105",
     "pdfkit": "^0.17.2"

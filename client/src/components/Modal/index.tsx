@@ -25,8 +25,8 @@ export default function Modal({
     };
 
     return (
-        <div className="modal-overlay" onClick={handleOverlayClick}>
-            <div className="modal-container">
+        <div className="modal-overlay" onClick={handleOverlayClick} data-testid="modal-overlay">
+            <div className="modal-container" data-testid="modal-container">
                 {showCloseButton && (
                     <button
                         className="modal-close-button"
@@ -36,7 +36,7 @@ export default function Modal({
                         ×
                     </button>
                 )}
-                <h1 className="modal-title">{title}</h1>
+                <h1 className="modal-title" data-testid="modal-title">{title}</h1>
                 <div className="modal-content">
                     {children}
                 </div>

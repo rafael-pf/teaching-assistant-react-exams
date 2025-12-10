@@ -513,8 +513,81 @@ router.post('/generation/:generationId/responses', (req: Request, res: Response)
  *   - quantidadeFechada: Number of closed questions (required, non-negative integer)
  *   - questionIds: Array of question IDs to include in the exam (required)
  */
+const validateCreateExamPayload = (payload: any) => {
+  const {
+    nomeProva,
+    classId,
+    quantidadeAberta,
+    quantidadeFechada,
+    questionIds,
+  } = payload;
+
+  const errors: string[] = [];
+
+  // Basic Type Validation
+  if (!nomeProva || typeof nomeProva !== "string") errors.push("nomeProva is required and must be a string");
+  if (!classId || typeof classId !== "string") errors.push("classId is required and must be a string");
+
+  if (!classes.findClassById(classId)) {
+    errors.push(`Turma ${classId} não encontrada`);
+  }
+
+  if (!questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
+    errors.push("questionIds is required and must be a non-empty array");
+  }
+
+  if (quantidadeAberta === undefined || !Number.isInteger(quantidadeAberta) || quantidadeAberta < 0) {
+    errors.push("quantidadeAberta is required and must be a non-negative integer");
+  }
+
+    // Validate questionIds is provided
+    if (!questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
+      return res.status(400).json({
+        error: "questionIds is required and must be a non-empty array",
+      });
+    }
+  if (quantidadeFechada === undefined || !Number.isInteger(quantidadeFechada) || quantidadeFechada < 0) {
+    errors.push("quantidadeFechada is required and must be a non-negative integer");
+  }
+
+  if (errors.length > 0) return { isValid: false, errors };
+
+  // Logic Validation
+  if (quantidadeAberta === 0 && quantidadeFechada === 0) {
+    return { isValid: false, errors: ["At least one question is required (quantidadeAberta or quantidadeFechada must be > 0)"] };
+  }
+
+  const questionsFound = getQuestionsByIds(questionIds);
+  if (questionsFound.length !== questionIds.length) {
+    return { isValid: false, errors: ["Some question IDs do not exist"] };
+  }
+
+  const openQuestionsProvided = questionsFound.filter((q: any) => q.type === 'open').length;
+  const closedQuestionsProvided = questionsFound.filter((q: any) => q.type === 'closed').length;
+
+    // Generate sequential ID
+    const allExamsGlobal = examsManager.getAllExams();
+    const maxId = allExamsGlobal.reduce((max, exam) => Math.max(max, exam.id), 0);
+    const examId = maxId + 1;
+  if (openQuestionsProvided < quantidadeAberta) {
+    errors.push(`Not enough open questions in questionIds. Required: ${quantidadeAberta}, Provided: ${openQuestionsProvided}`);
+  }
+
+  if (closedQuestionsProvided < quantidadeFechada) {
+    errors.push(`Not enough closed questions in questionIds. Required: ${quantidadeFechada}, Provided: ${closedQuestionsProvided}`);
+  }
+
+  return { isValid: errors.length === 0, errors };
+};
+
 router.post("/", (req: Request, res: Response) => {
   try {
+    const validation = validateCreateExamPayload(req.body);
+
+    if (!validation.isValid) {
+      return res.status(400).json({ error: validation.errors.join(', ') });
+    }
+
     const {
       nomeProva,
       classId,
@@ -523,84 +596,8 @@ router.post("/", (req: Request, res: Response) => {
       questionIds,
     } = req.body;
 
-    // Validate required fields
-    if (!nomeProva || typeof nomeProva !== "string") {
-      return res.status(400).json({
-        error: "nomeProva is required and must be a string",
-      });
-    }
-
-    if (!classId || typeof classId !== "string") {
-      return res.status(400).json({
-        error: "classId is required and must be a string",
-      });
-    }
-
-    // Validate questionIds is provided
-    if (!questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
-      return res.status(400).json({
-        error: "questionIds is required and must be a non-empty array",
-      });
-    }
-
-    // Validate question quantities
-    if (
-      quantidadeAberta === undefined ||
-      !Number.isInteger(quantidadeAberta) ||
-      quantidadeAberta < 0
-    ) {
-      return res.status(400).json({
-        error: "quantidadeAberta is required and must be a non-negative integer",
-      });
-    }
-
-    if (
-      quantidadeFechada === undefined ||
-      !Number.isInteger(quantidadeFechada) ||
-      quantidadeFechada < 0
-    ) {
-      return res.status(400).json({
-        error: "quantidadeFechada is required and must be a non-negative integer",
-      });
-    }
-
-    // Validate that at least one question type is required
-    if (quantidadeAberta === 0 && quantidadeFechada === 0) {
-      return res.status(400).json({
-        error: "At least one question is required (quantidadeAberta or quantidadeFechada must be > 0)",
-      });
-    }
-
-    // Generate sequential ID
-    const allExamsGlobal = examsManager.getAllExams();
-    const maxId = allExamsGlobal.reduce((max, exam) => Math.max(max, exam.id), 0);
-    const examId = maxId + 1;
-
-    // Validate that all provided question IDs exist
-    const questions = getQuestionsByIds(questionIds);
-
-    if (questions.length !== questionIds.length) {
-      return res.status(400).json({
-        error: "Some question IDs do not exist",
-      });
-    }
-
-    // Count open and closed questions in the provided list
-    const openQuestionsProvided = questions.filter((q: any) => q.type === 'open').length;
-    const closedQuestionsProvided = questions.filter((q: any) => q.type === 'closed').length;
-
-    // Validate that the provided questions match the required quantities
-    if (openQuestionsProvided < quantidadeAberta) {
-      return res.status(400).json({
-        error: `Not enough open questions in questionIds. Required: ${quantidadeAberta}, Provided: ${openQuestionsProvided}`,
-      });
-    }
-
-    if (closedQuestionsProvided < quantidadeFechada) {
-      return res.status(400).json({
-        error: `Not enough closed questions in questionIds. Required: ${quantidadeFechada}, Provided: ${closedQuestionsProvided}`,
-      });
-    }
+    // Generate sequential ID using nextId counter to prevent reuse
+    const examId = getNextExamId();
 
     // Create new exam object
     const newExam = {

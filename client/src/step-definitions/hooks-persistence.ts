@@ -12,6 +12,8 @@ const FILES_TO_BACKUP = [
     'exam-generations.json',
     'exams.json',
     'students-exams.json',
+    'responses.json', 
+    'questions.json',  
 ];
 
 const backups: Record<string, string> = {};

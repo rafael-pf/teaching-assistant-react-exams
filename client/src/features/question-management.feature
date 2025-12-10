@@ -19,3 +19,17 @@ Feature: Question Management
       | answer   | Garantir feedback rápido e código limpo.  |
     And I submit the question form
     Then I should see "Qual é o objetivo do TDD?" in the question bank list
+
+  Scenario: Create a new closed question
+    Given there is no question with text "Qual é a sigla de Test-Driven Development?" in the system
+    When I fill the question form with:
+      | field      | value                              |
+      | question   | Qual é a sigla de Test-Driven Development? |
+      | topic      | Testes Automatizados              |
+      | type       | closed                            |
+      | option1    | TBD                               |
+      | option2    | TDD                               |
+      | option3    | DDT                               |
+      | correct    | 2                                 |
+    And I submit the question form
+    Then I should see "Qual é a sigla de Test-Driven Development?" in the question bank list

@@ -30,6 +30,18 @@ import {
 } from "../services/dataService";
 import { Correction } from "../models/Correction";
 
+const isValidDate = (dateString: string): boolean => {
+  const regex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!regex.test(dateString)) return false;
+
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+
+  return date.getFullYear() === year && 
+         date.getMonth() === month - 1 && 
+         date.getDate() === day;
+};
+
 const formatDateExtended = (dateString: string) => {
   if (!dateString) return '___ de _________________ de ______';
 
@@ -224,12 +236,17 @@ const handleGetExamZIP = async (req: Request, res: Response) => {
     
     const MIN_COPIES = 1;
     const copiesRequested = parseInt(req.query.quantity as string, 10);
+    const examDateString = examDate as string;
 
     if (isNaN(copiesRequested) || copiesRequested < MIN_COPIES) {
         return res.status(400).json({ error: 'Quantidade inválida.' });
     }
     if (!targetClassId || typeof targetClassId !== 'string') {
         return res.status(400).json({ error: 'classId é obrigatório.' });
+    }
+
+    if (examDateString && !isValidDate(examDateString)) {
+        return res.status(400).json({ error: 'Data inválida. Use o formato YYYY-MM-DD.' });
     }
 
     const allExamsInClass = getExamsForClass(targetClassId);

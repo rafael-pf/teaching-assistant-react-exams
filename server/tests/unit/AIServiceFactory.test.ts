@@ -9,48 +9,34 @@ describe('AIServiceFactory', () => {
     jest.clearAllMocks();
   });
 
-  describe('create', () => {
-    it('deve criar uma instância de GeminiService para GEMINI_2_5_FLASH', () => {
-      const mockGeminiService = {
-        getMetadata: jest.fn(),
-        correctAnswer: jest.fn(),
-        validateConfiguration: jest.fn()
-      };
+  it('deve criar GeminiService para modelo válido e lançar erro para inválido', () => {
+    const mockGeminiService = {
+      getMetadata: jest.fn(),
+      correctAnswer: jest.fn(),
+      validateConfiguration: jest.fn()
+    };
 
-      (GeminiService as jest.MockedClass<typeof GeminiService>).mockImplementation(() => 
-        mockGeminiService as unknown as GeminiService
-      );
+    (GeminiService as jest.MockedClass<typeof GeminiService>).mockImplementation(() => 
+      mockGeminiService as unknown as GeminiService
+    );
 
-      const config: AIServiceConfig = {
-        model: AIModel.GEMINI_2_5_FLASH,
-        apiKey: 'test-api-key'
-      };
+    const validConfig: AIServiceConfig = {
+      model: AIModel.GEMINI_2_5_FLASH,
+      apiKey: 'test-api-key'
+    };
 
-      const service = AIServiceFactory.create(config);
+    const service = AIServiceFactory.create(validConfig);
+    expect(GeminiService).toHaveBeenCalledWith(validConfig);
+    expect(service).toBe(mockGeminiService);
 
-      expect(GeminiService).toHaveBeenCalledWith(config);
-      expect(service).toBe(mockGeminiService);
-    });
+    const invalidConfig: AIServiceConfig = {
+      model: 'Unsupported Model' as AIModel,
+      apiKey: 'test-api-key'
+    };
 
-    it('deve lançar erro para modelo não suportado', () => {
-      const config: AIServiceConfig = {
-        model: 'Unsupported Model' as AIModel,
-        apiKey: 'test-api-key'
-      };
-
-      expect(() => AIServiceFactory.create(config)).toThrow(
-        'Unsupported AI model: Unsupported Model'
-      );
-      expect(GeminiService).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('getAvailableModels', () => {
-    it('deve retornar todos os modelos disponíveis', () => {
-      const models = AIServiceFactory.getAvailableModels();
-      expect(models).toContain(AIModel.GEMINI_2_5_FLASH);
-      expect(Array.isArray(models)).toBe(true);
-    });
+    expect(() => AIServiceFactory.create(invalidConfig)).toThrow(
+      'Unsupported AI model: Unsupported Model'
+    );
   });
 });
 

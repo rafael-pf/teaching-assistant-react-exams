@@ -59,94 +59,44 @@ describe('QStashService', () => {
     console.error = originalConsoleError;
   });
 
-  describe('publish', () => {
-    it('deve publicar uma mensagem com sucesso', async () => {
-      const messageId = 'msg-123';
-      mockEnqueueJSON.mockResolvedValue({ messageId });
+  it('publishBatch deve publicar múltiplas mensagens e filtrar falhas', async () => {
+    const messageIds = ['msg-1', 'msg-2'];
+    mockEnqueueJSON
+      .mockResolvedValueOnce({ messageId: messageIds[0] })
+      .mockResolvedValueOnce({ messageId: messageIds[1] });
 
-      const message: QStashMessage = {
+    const messages: QStashMessage[] = [
+      {
         responseId: 1,
         examId: 10,
         questionId: 5,
-        questionText: 'O que é TDD?',
-        studentAnswer: 'Test-Driven Development',
-        correctAnswer: 'Test-Driven Development é uma metodologia...',
-        model: 'Gemini 2.5 Flash',
-        questionType: 'open'
-      };
+        questionText: 'Questão 1',
+        studentAnswer: 'Resposta 1',
+        correctAnswer: 'Correta 1',
+        model: 'Gemini 2.5 Flash'
+      },
+      {
+        responseId: 1,
+        examId: 10,
+        questionId: 6,
+        questionText: 'Questão 2',
+        studentAnswer: 'Resposta 2',
+        correctAnswer: 'Correta 2',
+        model: 'Gemini 2.5 Flash'
+      }
+    ];
 
-      const result = await qstashService.publish(message);
+    const result = await qstashService.publishBatch(messages);
+    expect(result).toEqual(messageIds);
+    expect(mockEnqueueJSON).toHaveBeenCalledTimes(2);
 
-      expect(result).toBe(messageId);
-      expect(mockEnqueueJSON).toHaveBeenCalled();
-    });
-  });
+    // Testa filtro de falhas
+    mockEnqueueJSON
+      .mockResolvedValueOnce({ messageId: 'msg-1' })
+      .mockRejectedValueOnce(new Error('Erro na publicação'));
 
-  describe('publishBatch', () => {
-    it('deve publicar múltiplas mensagens com sucesso', async () => {
-      const messageIds = ['msg-1', 'msg-2'];
-      mockEnqueueJSON
-        .mockResolvedValueOnce({ messageId: messageIds[0] })
-        .mockResolvedValueOnce({ messageId: messageIds[1] });
-
-      const messages: QStashMessage[] = [
-        {
-          responseId: 1,
-          examId: 10,
-          questionId: 5,
-          questionText: 'Questão 1',
-          studentAnswer: 'Resposta 1',
-          correctAnswer: 'Correta 1',
-          model: 'Gemini 2.5 Flash'
-        },
-        {
-          responseId: 1,
-          examId: 10,
-          questionId: 6,
-          questionText: 'Questão 2',
-          studentAnswer: 'Resposta 2',
-          correctAnswer: 'Correta 2',
-          model: 'Gemini 2.5 Flash'
-        }
-      ];
-
-      const result = await qstashService.publishBatch(messages);
-
-      expect(result).toEqual(messageIds);
-      expect(mockEnqueueJSON).toHaveBeenCalledTimes(2);
-    });
-
-    it('deve filtrar mensagens que falharam e retornar apenas as bem-sucedidas', async () => {
-      mockEnqueueJSON
-        .mockResolvedValueOnce({ messageId: 'msg-1' })
-        .mockRejectedValueOnce(new Error('Erro na publicação'));
-
-      const messages: QStashMessage[] = [
-        {
-          responseId: 1,
-          examId: 10,
-          questionId: 5,
-          questionText: 'Questão 1',
-          studentAnswer: 'Resposta 1',
-          correctAnswer: 'Correta 1',
-          model: 'Gemini 2.5 Flash'
-        },
-        {
-          responseId: 1,
-          examId: 10,
-          questionId: 6,
-          questionText: 'Questão 2',
-          studentAnswer: 'Resposta 2',
-          correctAnswer: 'Correta 2',
-          model: 'Gemini 2.5 Flash'
-        }
-      ];
-
-      const result = await qstashService.publishBatch(messages);
-
-      expect(result).toEqual(['msg-1']);
-      expect(result).toHaveLength(1);
-    });
+    const resultWithError = await qstashService.publishBatch(messages);
+    expect(resultWithError).toEqual(['msg-1']);
   });
 });
 

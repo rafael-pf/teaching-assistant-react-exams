@@ -22,7 +22,9 @@ const ensurePageLoaded = async (turmaId: string) => {
         args: ['--no-sandbox', '--start-maximized']
     });
     
-    page = await browser.newPage();
+    const pages = await browser.pages();
+    page = pages.length > 0 ? pages[0] : await browser.newPage();
+    
     const client = await page.target().createCDPSession();
     await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadPath });
 
@@ -36,18 +38,23 @@ const ensurePageLoaded = async (turmaId: string) => {
     }
 };
 
-const ensureExamExistsAndSelect = async (nomeProva: string) => {
+const ensureExamExists = async (nomeProva: string) => {
+    // 1. Abre o menu para checar
     await page!.click('[data-testid="exam-dropdown"]');
     
     const itemSelector = `[data-testid="dropdown-item-${nomeProva}"]`;
     await new Promise(r => setTimeout(r, 500));
+    
     const item = await page!.$(itemSelector);
 
     if (item) {
-        await item.click();
+        console.log(`Prova '${nomeProva}' encontrada. Mantendo menu aberto.`);
+        return; 
     } else {
-        await page!.keyboard.press('Escape');
-        await new Promise(r => setTimeout(r, 300));
+        console.log(`Prova '${nomeProva}' não encontrada. Criando...`);
+        
+        await page!.mouse.click(1, 1);
+        await new Promise(r => setTimeout(r, 500));
 
         const btnCriar = `xpath///button[contains(., 'Criar Prova')]`;
         await page!.waitForSelector(btnCriar);
@@ -72,12 +79,10 @@ const ensureExamExistsAndSelect = async (nomeProva: string) => {
         
         await page!.waitForSelector('div[role="dialog"]', { hidden: true, timeout: 5000 });
         await new Promise(r => setTimeout(r, 1000));
-
+        
         await page!.click('[data-testid="exam-dropdown"]');
-        await page!.waitForSelector(itemSelector, { timeout: 5000 });
-        await page!.click(itemSelector);
+        await page!.waitForSelector(itemSelector, { visible: true, timeout: 5000 });
     }
-    await new Promise(r => setTimeout(r, 500));
 };
 
 Given('que o professor está gerenciando a turma {string}', { timeout: 60000 }, async function (turmaId) {
@@ -85,7 +90,7 @@ Given('que o professor está gerenciando a turma {string}', { timeout: 60000 }, 
 });
 
 Given('a prova {string} já foi criada e está disponível na lista', { timeout: 30000 }, async function (nomeProva) {
-    await ensureExamExistsAndSelect(nomeProva);
+    await ensureExamExists(nomeProva);
 });
 
 Given('a turma possui {string} alunos matriculados', async function (qtd) {
@@ -93,9 +98,16 @@ Given('a turma possui {string} alunos matriculados', async function (qtd) {
 });
 
 When('ele seleciona a prova {string}', async function (nomeProva) {
-    await page!.click('[data-testid="exam-dropdown"]');
     const itemSelector = `[data-testid="dropdown-item-${nomeProva}"]`;
-    await page!.waitForSelector(itemSelector);
+    
+    const isVisible = await page!.$(itemSelector).then(res => res && res.boundingBox() != null);
+
+    if (!isVisible) {
+        console.log("Menu estava fechado. Abrindo novamente...");
+        await page!.click('[data-testid="exam-dropdown"]');
+    }
+    
+    await page!.waitForSelector(itemSelector, { visible: true, timeout: 5000 });
     await page!.click(itemSelector);
 });
 
@@ -162,6 +174,8 @@ Then('a prova {string} deve continuar selecionada', async function (nomeProva) {
     const btnText = await page!.$eval('[data-testid="exam-dropdown"]', el => el.textContent);
     assert.ok(btnText?.includes(nomeProva));
 });
+
+// STEPS DE UNIDADE DE GUI
 
 Then('o botão {string} deve estar visível e habilitado', async function (btnTexto) {
     const btnSelector = `xpath///button[contains(., '${btnTexto}')]`;

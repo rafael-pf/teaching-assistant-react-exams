@@ -1,4 +1,7 @@
 {
+<<<<<<< HEAD
+  "generations": []
+=======
   "generations": [
     {
       "id": "1",
@@ -218,4 +221,5 @@
       ]
     }
   ]
+>>>>>>> origin/main
 }

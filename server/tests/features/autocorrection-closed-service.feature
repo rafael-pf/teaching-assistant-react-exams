@@ -64,3 +64,43 @@ Feature: Exam autocorrection service
         And no students submitted answers
         When the system autocorrects exam "1"
         Then no grades are updated
+
+    @autocorrection-service
+    Scenario: Retrieve submitted answers for an exam (ungraded)
+        Given exam "1" has responses from students "12345678901" and "12345678902"
+        And student "12345678901" answered "a" for question "1" in exam "1"
+        And student "12345678902" answered "b" for question "1" in exam "1"
+        When the system retrieves the answers for exam "1"
+        Then the system returns a list with 2 student answers
+        And the returned entries include student CPF "12345678901" and "12345678902"
+        And names are resolved from student registry or shown as "Aluno não registrado" when missing
+
+    @autocorrection-service
+    Scenario: Retrieve submitted answers for an exam (after grading)
+        Given exam "1" has responses from student "12345678901" with graded closed answers
+        And the response record for student "12345678901" contains a closed grade of "85"
+        When the system retrieves the answers for exam "1"
+        Then the returned entry for student "12345678901" contains the closed grade "85"
+
+    @autocorrection-service
+    Scenario: Retrieve answers for non-existent exam
+        Given exam "999" does not exist
+        When the system retrieves the answers for exam "999"
+        Then the system returns an error indicating "Exam not found"
+
+    @autocorrection-service
+    Scenario: Retrieve answers when no student submitted the exam
+        Given exam "2" exists and no students submitted responses
+        When the system retrieves the answers for exam "2"
+        Then the system returns an empty list
+
+    @autocorrection-service
+    Scenario: Exam with mixed open and closed questions counts only closed toward grade
+        Given exam "3" has questions "1", "2", "3" and "4"
+        And questions "1", "2" and "3" are closed questions
+        And question "4" is an open question
+        And correct answers for closed questions are "a", "b" and "c"
+        And student "12345678901" answered "a" for question "1", "b" for question "2", and "d" for question "3" in exam "3"
+        And student "12345678901" answered "some text response" for the open question "4" in exam "3"
+        When the system autocorrects the exam "3"
+        Then student "12345678901" is registered with grade "66.7" for exam "3"

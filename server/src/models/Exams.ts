@@ -1,4 +1,3 @@
-import { getNextExamId } from '../services/dataService';
 import { Class } from './Class';
 import { Student } from './Student';
 
@@ -16,7 +15,6 @@ export interface StudentExamRecord {
   id: number;
   studentCPF: string;
   examId: number;
-  generationId?: string;
   grade?: number;
   answers: Array<{
     questionId: number;
@@ -29,7 +27,6 @@ export interface StudentWithExam {
   studentCPF: string;
   studentName: string;
   examId: number;
-  generationId?: string;
   classId: string;
   examTitle: string;
   studentExamId?: number;
@@ -39,9 +36,6 @@ export interface StudentWithExam {
     answer: string;
   }>;
 }
- // getNextExamId(): number {
- //   throw new Error('Method not implemented.');
- // }
 
 export class Exams {
   private exams: ExamRecord[] = [];

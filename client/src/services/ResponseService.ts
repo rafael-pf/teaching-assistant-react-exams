@@ -2,19 +2,17 @@ class ResponseService {
   // Use the same base API as the rest of the client (`/api/exams`)
   private readonly baseUrl = 'http://localhost:3005/api/exams';
 
-  // Load questions by generation id (student must enter generation id)
-  async getQuestions(generationId: string): Promise<any[]> {
-    const res = await fetch(`${this.baseUrl}/generation/${encodeURIComponent(String(generationId))}/questions`);
+  async getQuestions(examId: string | number): Promise<any[]> {
+    const res = await fetch(`${this.baseUrl}/${encodeURIComponent(String(examId))}/questions`);
     if (!res.ok) throw new Error('Failed to fetch questions');
     return res.json();
   }
 
-  // Submit response by generation id
-  async submitResponse(generationId: string, studentCpf: string, answers: any[], token?: string): Promise<any> {
+  async submitResponse(examId: string | number, studentCpf: string, answers: any[], token?: string): Promise<any> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const response = await fetch(`${this.baseUrl}/generation/${encodeURIComponent(String(generationId))}/responses`, {
+    const response = await fetch(`${this.baseUrl}/${encodeURIComponent(String(examId))}/responses`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ studentCpf, answers }),

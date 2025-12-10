@@ -1,8 +1,0 @@
-nohup: ignoring input
-
-> teaching-assistant-server@1.0.0 dev
-> ts-node-dev --respawn --transpile-only src/server.ts
-
-[INFO] 17:25:02 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 5.9.3)
-Server loaded 2 exams on startup
-Server running on http://localhost:3005

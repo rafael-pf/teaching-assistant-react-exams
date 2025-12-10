@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { AIModel } from '../types/AIModel';
 import { examsManager, getOpenQuestionsForExam, getResponsesByExamId, getQuestionCorrectAnswer } from '../services/dataService';
-import { qstashService } from '../services/qstashService';
+import { qstashService, QStashMessage } from '../services/qstashService';
+import { validateAIModel, calculateEstimatedTime } from '../utils/aiCorrectionHelpers';
 
 const router = Router();
 
@@ -17,8 +18,10 @@ router.post('/trigger-ai-correction', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'examId e model são obrigatórios' });
     }
 
-    if (model !== AIModel.GEMINI_2_5_FLASH) {
-      return res.status(400).json({ error: 'Modelo inválido. Apenas Gemini 2.5 Flash é suportado' });
+    try {
+      validateAIModel(model);
+    } catch (error) {
+      return res.status(400).json({ error: (error as Error).message });
     }
 
     // Valida exame
@@ -40,16 +43,7 @@ router.post('/trigger-ai-correction', async (req: Request, res: Response) => {
     }
 
     // Monta mensagens para enfileirar
-    const messagesToQueue: Array<{
-      responseId: number;
-      examId: number;
-      questionId: number;
-      questionText: string;
-      studentAnswer: string;
-      correctAnswer: string;
-      model: string;
-      questionType: 'open';
-    }> = [];
+    const messagesToQueue: QStashMessage[] = [];
 
     for (const response of examResponses) {
       for (const question of openQuestions) {
@@ -76,23 +70,9 @@ router.post('/trigger-ai-correction', async (req: Request, res: Response) => {
     }
 
     // Calcular tempo estimado de conclusão
-    // Cada correção leva aproximadamente: 2 segundos de processamento + 60 segundos de timeout = 62 segundos
+    // Cada correção leva aproximadamente: 2 segundos de processamento + 120 segundos de timeout = 122 segundos
     const totalOpenQuestions = messagesToQueue.length;
-    
-    // Tempo por questão: ~2 segundos de processamento + 60 segundos de timeout = 62 segundos
-    const secondsPerQuestion = 62;
-    const estimatedSeconds = totalOpenQuestions * secondsPerQuestion;
-    const estimatedMinutes = Math.ceil(estimatedSeconds / 60);
-    
-    // Formata o tempo estimado
-    let estimatedTime: string;
-    if (estimatedMinutes < 1) {
-      estimatedTime = 'menos de 1 minuto';
-    } else if (estimatedMinutes === 1) {
-      estimatedTime = '1 minuto';
-    } else {
-      estimatedTime = `${estimatedMinutes} minutos`;
-    }
+    const estimatedTime = calculateEstimatedTime(totalOpenQuestions);
 
     // Valida se QStash está configurado
     if (!qstashService.isConfigured()) {

@@ -5,7 +5,7 @@ describe('updateResponseAnswerScore', () => {
     responses.length = 0;
   });
 
-  it('atualiza grade e mantém a resposta', () => {
+  it('atualiza grade mantendo resposta e faz clamp entre 0-100', () => {
     responses.push({
       id: 1,
       studentCPF: '1',
@@ -18,25 +18,15 @@ describe('updateResponseAnswerScore', () => {
     expect(ok).toBe(true);
     expect(responses[0].answers[0].grade).toBe(90);
     expect(responses[0].answers[0].answer).toBe('texto');
-  });
 
-  it('faz clamp entre 0 e 100', () => {
-    responses.push({
-      id: 2,
-      studentCPF: '2',
-      examId: 11,
-      answers: [{ questionId: 7, answer: 't', grade: 0 }],
-      timestamp: new Date().toISOString(),
-    });
-    updateResponseAnswerScore(2, 7, 150);
+    // Testa clamp
+    updateResponseAnswerScore(1, 5, 150);
     expect(responses[0].answers[0].grade).toBe(100);
-    updateResponseAnswerScore(2, 7, -10);
+    updateResponseAnswerScore(1, 5, -10);
     expect(responses[0].answers[0].grade).toBe(0);
-  });
 
-  it('retorna false se response ou answer não existirem', () => {
-    const result = updateResponseAnswerScore(999, 1, 50);
-    expect(result).toBe(false);
+    // Testa não encontrado
+    expect(updateResponseAnswerScore(999, 1, 50)).toBe(false);
   });
 });
 

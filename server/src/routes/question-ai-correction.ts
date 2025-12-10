@@ -4,6 +4,7 @@ import { AIServiceFactory } from '../services/ai/AIServiceFactory';
 import { IAIService } from '../services/ai/IAIService';
 import { getQuestionCorrectAnswer, updateResponseAnswerScore, triggerSaveResponses } from '../services/dataService';
 import { geminiConfig } from '../config';
+import { validateAIModel, convertScoreToPercentage, getRateLimitTimeout, isRateLimitError } from '../utils/aiCorrectionHelpers';
 
 const router = Router();
 
@@ -22,9 +23,10 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
       });
     }
 
-    // Valida modelo
-    if (model !== AIModel.GEMINI_2_5_FLASH) {
-      return res.status(400).json({ error: 'Modelo inválido. Apenas Gemini 2.5 Flash é suportado' });
+    try {
+      validateAIModel(model);
+    } catch (error) {
+      return res.status(400).json({ error: (error as Error).message });
     }
 
     // Opcional: garantir que existe resposta correta armazenada
@@ -55,37 +57,47 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
     };
 
     // Executa correção
-    const aiCorrectionResponse = await aiService.correctAnswer(aiCorrectionRequest);
-    
-    // Converte score de 0-10 para 0-100 (porcentagem)
-    const percentageScore = (aiCorrectionResponse.score / 10) * 100;
+    const aiCorrectionResponse = await aiService.correctAnswer(aiCorrectionRequest);  
 
-    // Atualiza a resposta com a pontuação (0% - 100%) que o aluno obteve na questão
-    const updated = updateResponseAnswerScore(Number(responseId), Number(questionId), percentageScore);
-    if (!updated) {
-      return res.status(404).json({ error: 'Resposta não encontrada para atualizar a nota' });
+    // Verifica se houve erro de quota/rate limit
+    const isRateLimit = isRateLimitError(aiCorrectionResponse.feedback);
+    
+    // Se não for erro de rate limit, atualiza a nota
+    if (!isRateLimit) {
+      // Converte score de 0-10 para 0-100 (porcentagem)
+      const percentageScore = convertScoreToPercentage(aiCorrectionResponse.score);
+
+      // Atualiza a resposta com a pontuação (0% - 100%) que o aluno obteve na questão
+      const updated = updateResponseAnswerScore(Number(responseId), Number(questionId), percentageScore);
+      if (!updated) {
+        return res.status(404).json({ error: 'Resposta não encontrada para atualizar a nota' });
+      }
+
+      // Salva as alterações
+      triggerSaveResponses();
+    } else {
+      // Em caso de rate limit, não atualiza a nota mas ainda retorna a resposta
+      console.log('Rate limit detectado - nota não será atualizada');
     }
 
-    // Salva as alterações
-    triggerSaveResponses();
-
-    // Timeout de 1 minuto antes de retornar a resposta (para rate limiting do Gemini)
+    // Timeout de 2 minutos antes de retornar a resposta (para rate limiting do Gemini)
     // Em testes, pode ser configurado via variável de ambiente para acelerar
-    const timeoutMs = process.env.NODE_ENV === 'test' 
-      ? parseInt(process.env.AI_CORRECTION_TEST_TIMEOUT_MS || '100', 10)
-      : 60000; // 60 segundos = 1 minuto em produção
+    const timeoutMs = getRateLimitTimeout();
     await new Promise(resolve => setTimeout(resolve, timeoutMs));
 
     // Retorna a resposta da API de correção
     res.json({
-      message: 'Question AI correction completed successfully',
+      message: isRateLimit 
+        ? 'Question AI correction completed with rate limit error - grade not updated'
+        : 'Question AI correction completed successfully',
       responseId: responseId,
       examId: examId,
       questionId: questionId,
-      score: percentageScore,
+      score: isRateLimit ? undefined : convertScoreToPercentage(aiCorrectionResponse.score),
       isCorrect: aiCorrectionResponse.isCorrect,
       feedback: aiCorrectionResponse.feedback,
-      confidence: aiCorrectionResponse.confidence
+      confidence: aiCorrectionResponse.confidence,
+      rateLimitError: isRateLimit
     });
   } catch (error) {
     console.error('Error in question AI correction:', error);

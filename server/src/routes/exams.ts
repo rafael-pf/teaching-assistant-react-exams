@@ -92,7 +92,7 @@ const generateExamPDF = (
   if (!isGabarito) {
     doc.font(FONT_BOLD).fontSize(11);
     doc.text(
-      'Em cada questão a seguir, some os valores das afirmações que você considera corretas e escreva o resultado da soma no espaço indicado. Todas as questões têm o mesmo peso.',
+      'Em cada questão fechada, marque as alternativas corretas com um "X". Todas as questões têm o mesmo peso.',
       { align: 'justify' }
     );
     doc.moveDown(2);
@@ -131,7 +131,6 @@ const generateExamPDF = (
         doc.font(FONT_REGULAR).text(q.answer || 'Sem resposta cadastrada.');
         doc.moveDown(1.5);
       } else {
-        // Verifica espaço para as linhas de resposta
         if (doc.y > 600) doc.addPage();
 
         doc.moveDown(0.5);
@@ -180,106 +179,125 @@ const generateExamPDF = (
   return doc;
 };
 
+const createRandomizedVersion = (questionsPool: QuestionRecord[]): QuestionRecord[] => {
+  const deepCopyQuestions: QuestionRecord[] = JSON.parse(JSON.stringify(questionsPool));
+  
+  const shuffledQuestions = shuffleArray(deepCopyQuestions);
+
+  shuffledQuestions.forEach(q => {
+    if (q.type === 'closed' && q.options && q.options.length > 0) {
+      q.options = shuffleArray(q.options);
+    }
+  });
+
+  return shuffledQuestions;
+};
+
+const mapVersionAnswers = (versionIndex: number, questions: QuestionRecord[]): ExamVersionMap => {
+  return {
+    versionNumber: versionIndex,
+    questions: questions.map((q, idx) => {
+      let rightAnswerLabel = '';
+      
+      if (q.type === 'closed' && q.options) {
+        const indexCorreta = q.options.findIndex(opt => opt.isCorrect);
+        const ASCII_OFFSET_A = 65; 
+        rightAnswerLabel = indexCorreta >= 0 ? String.fromCharCode(ASCII_OFFSET_A + indexCorreta) : '?';
+      } else {
+        rightAnswerLabel = q.answer || 'Dissertativa';
+      }
+
+      return {
+        numero: idx + 1,
+        questionId: q.id,
+        type: q.type,
+        rightAnswer: rightAnswerLabel
+      };
+    })
+  };
+};
 
 const handleGetExamZIP = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { classId, date } = req.query;
-    const quantity = parseInt(req.query.quantity as string, 10);
+    const { id: examIdParam } = req.params;
+    const { classId: targetClassId, date: examDate } = req.query;
+    
+    const MIN_COPIES = 1;
+    const copiesRequested = parseInt(req.query.quantity as string, 10);
 
-    if (isNaN(quantity) || quantity <= 0) return res.status(400).json({ error: 'Quantidade inválida.' });
-    if (!classId || typeof classId !== 'string') return res.status(400).json({ error: 'classId é obrigatório.' });
+    if (isNaN(copiesRequested) || copiesRequested < MIN_COPIES) {
+        return res.status(400).json({ error: 'Quantidade inválida.' });
+    }
+    if (!targetClassId || typeof targetClassId !== 'string') {
+        return res.status(400).json({ error: 'classId é obrigatório.' });
+    }
 
-    const allExams = getExamsForClass(classId);
-    const examIdNum = parseInt(id, 10);
-    const examDef = allExams.find(e => e.id === examIdNum);
+    const allExamsInClass = getExamsForClass(targetClassId);
+    const examIdNumber = parseInt(examIdParam, 10);
+    const examDefinition = allExamsInClass.find(e => e.id === examIdNumber);
 
-    if (!examDef) return res.status(404).json({ error: 'Prova não encontrada.' });
-    if (!examDef.questions || examDef.questions.length === 0) {
+    if (!examDefinition) return res.status(404).json({ error: 'Prova não encontrada.' });
+    if (!examDefinition.questions || examDefinition.questions.length === 0) {
       return res.status(400).json({ error: 'Esta prova não possui questões vinculadas.' });
     }
 
-    const className = "Engenharia de Software e Sistemas";
-    const teacherName = "Paulo Borba";
+    const INSTITUTION_NAME = "Engenharia de Software e Sistemas";
+    const TEACHER_NAME = "Paulo Borba";
+    const formattedDateString = formatDateExtended(examDate as string);
 
-    const formattedDate = formatDateExtended(date as string);
-
-    const timestamp = new Date();
-    const generationId = getNextGenerationId();
-
+    const batchGenerationId = getNextGenerationId();
+    const generationTimestamp = new Date();
+    
     const newGenerationRecord: ExamGenerationRecord = {
-      id: generationId,
-      examId: examIdNum,
-      classId: classId,
-      timestamp: timestamp.toISOString(),
-      description: `Lote gerado em ${timestamp.toLocaleString('pt-BR')} (${quantity} provas)`,
+      id: batchGenerationId,
+      examId: examIdNumber,
+      classId: targetClassId,
+      timestamp: generationTimestamp.toISOString(),
+      description: `Lote gerado em ${generationTimestamp.toLocaleString('pt-BR')} (${copiesRequested} provas)`,
       versions: []
     };
 
+    const downloadFileName = `Lote_${batchGenerationId}_${examDefinition.title}.zip`;
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="Lote_${generationId}_${examDef.title}.zip"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadFileName}"`);
 
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const MAX_COMPRESSION_LEVEL = 9;
+    const archive = archiver('zip', { zlib: { level: MAX_COMPRESSION_LEVEL } });
     archive.on('error', (err) => { throw err; });
     archive.pipe(res);
 
-    const originalQuestionsPool = getQuestionsByIds(examDef.questions);
+    const originalQuestionsPool = getQuestionsByIds(examDefinition.questions);
 
-    for (let i = 1; i <= quantity; i++) {
+    for (let currentVersionIndex = 1; currentVersionIndex <= copiesRequested; currentVersionIndex++) {
 
-      // Deep copy das questões para poder embaralhar
-      let versionQuestions: QuestionRecord[] = JSON.parse(JSON.stringify(originalQuestionsPool));
-      versionQuestions = shuffleArray(versionQuestions);
+      const randomizedQuestions = createRandomizedVersion(originalQuestionsPool);
 
-      versionQuestions.forEach(q => {
-        if (q.type === 'closed' && q.options && q.options.length > 0) {
-          q.options = shuffleArray(q.options);
-        }
-      });
-
-      const docProva = generateExamPDF(
-        className,
-        teacherName,
-        examDef.title,
-        i,
-        versionQuestions,
-        false,
-        formattedDate
+      const examPdfDoc = generateExamPDF(
+        INSTITUTION_NAME,
+        TEACHER_NAME,
+        examDefinition.title,
+        currentVersionIndex,
+        randomizedQuestions,
+        false, 
+        formattedDateString
       );
-      archive.append(docProva as unknown as Readable, { name: `Provas/Prova_Tipo_${i}.pdf` });
-      docProva.end();
+      archive.append(examPdfDoc as unknown as Readable, { name: `Provas/Prova_Tipo_${currentVersionIndex}.pdf` });
+      examPdfDoc.end();
 
-      const docGabarito = generateExamPDF(
-        className,
-        teacherName,
-        examDef.title,
-        i,
-        versionQuestions,
+      const answerKeyPdfDoc = generateExamPDF(
+        INSTITUTION_NAME,
+        TEACHER_NAME,
+        examDefinition.title,
+        currentVersionIndex,
+        randomizedQuestions,
         true,
-        formattedDate
+        formattedDateString
       );
-      archive.append(docGabarito as unknown as Readable, { name: `Gabaritos/Gabarito_Tipo_${i}.pdf` });
-      docGabarito.end();
+      archive.append(answerKeyPdfDoc as unknown as Readable, { name: `Gabaritos/Gabarito_Tipo_${currentVersionIndex}.pdf` });
+      answerKeyPdfDoc.end();
 
-      const mapEntry: ExamVersionMap = {
-        versionNumber: i,
-        questions: versionQuestions.map((q, idx) => {
-          let gabarito = '';
-          if (q.type === 'closed' && q.options) {
-            const indexCorreta = q.options.findIndex(opt => opt.isCorrect);
-            gabarito = indexCorreta >= 0 ? String.fromCharCode(65 + indexCorreta) : '?';
-          } else {
-            gabarito = q.answer || 'Dissertativa';
-          }
-          return {
-            numero: idx + 1,
-            questionId: q.id,
-            type: q.type,
-            rightAnswer: gabarito
-          };
-        })
-      };
-      newGenerationRecord.versions.push(mapEntry);
+      const versionMapEntry = mapVersionAnswers(currentVersionIndex, randomizedQuestions);
+      newGenerationRecord.versions.push(versionMapEntry);
     }
 
     addExamGeneration(newGenerationRecord);

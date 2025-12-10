@@ -338,3 +338,36 @@ Then('the correction process is not initiated', async function () {
     const selectionModal = await page.$('[data-testid="model-selection-dropdown"]');
     expect(selectionModal).toBeFalsy();
 });
+
+Then('the system opens the popup to select the model', async function () {
+    // Verificar que o modal de seleção de modelo foi aberto
+    // O modal deve estar presente no DOM após clicar no botão
+    await page.waitForSelector('[data-testid="model-selection-dropdown"]', { timeout: 5000 });
+    
+    // Verificar que o dropdown está presente
+    const dropdown = await page.$('[data-testid="model-selection-dropdown"]');
+    expect(dropdown).toBeTruthy();
+});
+
+Then('the popup to select the model is visible', async function () {
+    // Verificar que o popup está visível na tela
+    const dropdown = await page.$('[data-testid="model-selection-dropdown"]');
+    expect(dropdown).toBeTruthy();
+    
+    // Verificar que o elemento está visível (não está oculto)
+    const isVisible = await page.evaluate((element) => {
+        if (!element) return false;
+        const htmlElement = element as HTMLElement;
+        const style = window.getComputedStyle(htmlElement);
+        return htmlElement.offsetParent !== null && 
+               style.display !== 'none' &&
+               style.visibility !== 'hidden' &&
+               parseFloat(style.opacity) > 0;
+    }, dropdown);
+    
+    expect(isVisible).toBe(true);
+    
+    // Verificar que o botão de confirmar também está presente e visível
+    const confirmButton = await page.$('[data-testid="model-selection-confirm-button"]');
+    expect(confirmButton).toBeTruthy();
+});

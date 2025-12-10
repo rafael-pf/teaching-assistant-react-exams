@@ -29,3 +29,10 @@ Feature: Open Question Grading
     And the teacher confirms the selection
     Then the system displays an error message "Nenhuma resposta encontrada para este exame"
     And the correction process is not initiated
+
+  @gui @ai-correction @unit
+  Scenario: Successful opening the popup to select the model
+    Given teacher "Paulo" is viewing the exam "Exame de Requisitos"
+    When the teacher asks the system to grade the open questions in the exam "Exame de Requisitos"
+    Then the system opens the popup to select the model
+    And the popup to select the model is visible

@@ -36,6 +36,8 @@ export interface ExamVersionMap {
     questionId: number;
     type: 'open' | 'closed';
     rightAnswer: string;
+    // snapshot of the full question (text + options) at generation time
+    question?: QuestionRecord;
   }[];
 }
 
@@ -474,36 +476,59 @@ export const addStudentExam = (studentExam: StudentExamRecord): void => {
   // Prevent a student from submitting more than once for the same exam
   try {
     const studentCPF = cleanCPF(String(studentExam.studentCPF));
+    const incomingGenerationId = (studentExam as any).generationId ? String((studentExam as any).generationId) : undefined;
 
-    const alreadyInResponses = responses.some(r => {
-      try {
-        return cleanCPF(String(r.studentCPF)) === studentCPF && r.examId === studentExam.examId;
-      } catch (e) {
-        return false;
-      }
-    });
+    // If a generationId is provided, block duplicate submissions for the same generationId.
+    // Otherwise, fall back to blocking by examId (previous behaviour).
+    const allStudentExams = examsManager.getAllStudentExams ? examsManager.getAllStudentExams() : [];
 
-    const allStudentExams = examsManager.getAllStudentExams();
-    const alreadyInManager = allStudentExams.some((se: any) => {
-      try {
-        return cleanCPF(String(se.studentCPF)) === studentCPF && se.examId === studentExam.examId;
-      } catch (e) {
-        return false;
-      }
-    });
+    let alreadySubmitted = false;
 
-    if (alreadyInResponses || alreadyInManager) {
+    if (incomingGenerationId) {
+      alreadySubmitted = responses.some(r => {
+        try {
+          return cleanCPF(String(r.studentCPF)) === studentCPF && String(r.generationId) === incomingGenerationId;
+        } catch (e) {
+          return false;
+        }
+      }) || allStudentExams.some((se: any) => {
+        try {
+          return cleanCPF(String(se.studentCPF)) === studentCPF && String(se.generationId) === incomingGenerationId;
+        } catch (e) {
+          return false;
+        }
+      });
+    } else {
+      // legacy behaviour: block by examId
+      alreadySubmitted = responses.some(r => {
+        try {
+          return cleanCPF(String(r.studentCPF)) === studentCPF && r.examId === studentExam.examId;
+        } catch (e) {
+          return false;
+        }
+      }) || allStudentExams.some((se: any) => {
+        try {
+          return cleanCPF(String(se.studentCPF)) === studentCPF && se.examId === studentExam.examId;
+        } catch (e) {
+          return false;
+        }
+      });
+    }
+
+    if (alreadySubmitted) {
       throw new Error('StudentAlreadySubmitted');
     }
 
-    // Add to exams manager
+    // Add to exams manager and persist a simplified responses record
+    // Persist student exam into manager
     examsManager.addStudentExam(studentExam);
 
-    // Persist a simplified responses record
+    // Persist a simplified record into the responses array (including generationId when present)
     responses.push({
       id: studentExam.id,
       studentCPF: studentExam.studentCPF,
       examId: studentExam.examId,
+      generationId: (studentExam as any).generationId,
       answers: studentExam.answers,
       timestamp: new Date().toISOString()
     });
@@ -539,6 +564,44 @@ export const addExamGeneration = (record: ExamGenerationRecord): void => {
 
 export const getGenerationsForExam = (examId: number, classId: string): ExamGenerationRecord[] => {
   return examGenerations.filter(g => g.examId === examId && g.classId === classId);
+};
+
+export const getGenerationById = (generationId: string): ExamGenerationRecord | undefined => {
+  return examGenerations.find(g => String(g.id) === String(generationId));
+};
+
+/**
+ * Return question records for a given generation id and optional version number.
+ * If versionNumber is not provided, the first version of the generation is used.
+ */
+export const getGenerationQuestions = (generationId: string, versionNumber?: number): QuestionRecord[] => {
+  const gen = getGenerationById(generationId);
+  if (!gen) return [];
+
+  let version: ExamVersionMap | undefined;
+  if (versionNumber !== undefined && !isNaN(versionNumber)) {
+    version = gen.versions.find(v => v.versionNumber === versionNumber);
+  }
+  if (!version) version = gen.versions[0];
+  if (!version) return [];
+
+  // If generation stores question snapshots use them; otherwise fallback to questionsManager
+  const result: QuestionRecord[] = [];
+  for (const q of version.questions) {
+    if (q.question) {
+      result.push(q.question as QuestionRecord);
+      continue;
+    }
+
+    const full = questionsManager.getQuestionById(q.questionId);
+    if (full) {
+      result.push(full);
+    } else {
+      result.push({ id: q.questionId, question: 'Questão não encontrada', topic: '', type: q.type });
+    }
+  }
+
+  return result;
 };
 
 export const generateStudentExams = (examId: number, classId: string): StudentExamRecord[] => {

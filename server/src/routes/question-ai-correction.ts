@@ -4,6 +4,7 @@ import { AIServiceFactory } from '../services/ai/AIServiceFactory';
 import { IAIService } from '../services/ai/IAIService';
 import { getQuestionCorrectAnswer, updateResponseAnswerScore, triggerSaveResponses } from '../services/dataService';
 import { geminiConfig } from '../config';
+import { validateAIModel, convertScoreToPercentage, getRateLimitTimeout } from '../utils/aiCorrectionHelpers';
 
 const router = Router();
 
@@ -22,9 +23,10 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
       });
     }
 
-    // Valida modelo
-    if (model !== AIModel.GEMINI_2_5_FLASH) {
-      return res.status(400).json({ error: 'Modelo inválido. Apenas Gemini 2.5 Flash é suportado' });
+    try {
+      validateAIModel(model);
+    } catch (error) {
+      return res.status(400).json({ error: (error as Error).message });
     }
 
     // Opcional: garantir que existe resposta correta armazenada
@@ -58,7 +60,7 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
     const aiCorrectionResponse = await aiService.correctAnswer(aiCorrectionRequest);
     
     // Converte score de 0-10 para 0-100 (porcentagem)
-    const percentageScore = (aiCorrectionResponse.score / 10) * 100;
+    const percentageScore = convertScoreToPercentage(aiCorrectionResponse.score);
 
     // Atualiza a resposta com a pontuação (0% - 100%) que o aluno obteve na questão
     const updated = updateResponseAnswerScore(Number(responseId), Number(questionId), percentageScore);
@@ -71,9 +73,7 @@ router.post('/question-ai-correction', async (req: Request, res: Response) => {
 
     // Timeout de 1 minuto antes de retornar a resposta (para rate limiting do Gemini)
     // Em testes, pode ser configurado via variável de ambiente para acelerar
-    const timeoutMs = process.env.NODE_ENV === 'test' 
-      ? parseInt(process.env.AI_CORRECTION_TEST_TIMEOUT_MS || '100', 10)
-      : 60000; // 60 segundos = 1 minuto em produção
+    const timeoutMs = getRateLimitTimeout();
     await new Promise(resolve => setTimeout(resolve, timeoutMs));
 
     // Retorna a resposta da API de correção

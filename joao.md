@@ -24,4 +24,6 @@ npm test -- ./tests/integration/provas.test.ts
 
 [Create Exam extract validation](https://github.com/rafael-pf/teaching-assistant-react-exams/commit/b3ac00f70d8a7376521113bf2d5792da4abb0249)
 
-[convert loadAllData to useCallback exampage](https://github.com/rafael-pf/teaching-assistant-react-exams/commit/4e2f0c08790db03c906f135c0ef351e69029e03a)
+[Convert loadAllData to useCallback exampage](https://github.com/rafael-pf/teaching-assistant-react-exams/commit/4e2f0c08790db03c906f135c0ef351e69029e03a)
+
+[Add tag to test for easy run](https://github.com/rafael-pf/teaching-assistant-react-exams/commit/232353ce5a1f32deea36343d159c9746db3fc1d5)

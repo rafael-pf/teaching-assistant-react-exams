@@ -16,8 +16,10 @@ const ensurePageLoaded = async (turmaId: string) => {
     if (browser) await browser.close();
     
     browser = await puppeteer.launch({ 
-        headless: true, 
-        args: ['--no-sandbox']
+        headless: false,
+        slowMo: 50,
+        defaultViewport: null, 
+        args: ['--no-sandbox', '--start-maximized']
     });
     
     page = await browser.newPage();

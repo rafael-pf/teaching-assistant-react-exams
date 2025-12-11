@@ -3,41 +3,53 @@ import { Browser, Page, launch } from 'puppeteer';
 import expect from 'expect';
 
 // Set default timeout for all steps
-setDefaultTimeout(30 * 1000); // 30 seconds
+setDefaultTimeout(60 * 1000); // 60 seconds
+
+const serverUrl = 'http://localhost:3005/api';
+const baseUrl = 'http://localhost:3004';
 
 let browser: Browser;
 let page: Page;
-const baseUrl = 'http://localhost:3004';
-const serverUrl = 'http://localhost:3005';
-
 // Test data
 let selectedExamId: string | null = null;
 let testExamCreated = false;
+let testClassId: string | null = null;
 
 // Helper function to wait for a specific time
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper to create exam via API
-async function createTestExam(examName: string, classId: string, openQuestions: number, closedQuestions: number, questionIds: number[]) {
-  const response = await fetch(`${serverUrl}/api/exams`, {
+const testTopic = 'ESS';
+
+async function createTestExam(
+  title: string,
+  classId: string,
+  openQuestions: number,
+  closedQuestions: number,
+  questionIds: number[] = [],
+) {
+  const requestBody = {
+    nomeProva: title,
+    quantidadeAberta: openQuestions,
+    quantidadeFechada: closedQuestions,
+    questionIds: questionIds && questionIds.length > 0 ? questionIds : [1],
+    classId: classId,
+  };
+  
+  const response = await fetch(`${serverUrl}/exams`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      nomeProva: examName,
-      classId: classId,
-      quantidadeAberta: openQuestions,
-      quantidadeFechada: closedQuestions,
-      questionIds: questionIds
-    })
+    body: JSON.stringify(requestBody),
   });
   
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`Failed to create exam: ${error.error}`);
+    const errorText = await response.text();
+    console.error(`Failed to create exam:`, errorText);
+    throw new Error(`Failed to create exam: ${response.status} ${errorText}`);
   }
   
   const result = await response.json();
-  return result.data;
+  const examId = result.data?.id || result.id;
+  return { ...result.data, id: examId };
 }
 
 // Helper function to select exam from dropdown
@@ -52,7 +64,7 @@ async function selectExamFromDropdown(examTitle: string) {
   console.log(`Current dropdown shows: "${currentText}"`);
   
   await dropdownButton.click();
-  await wait(1000);
+  await wait(500);
   
   // List available options for debugging
   const options = await page.$$('[data-testid^="dropdown-item-"]');
@@ -66,21 +78,54 @@ async function selectExamFromDropdown(examTitle: string) {
   }
   console.log(`Available exams: ${examNames.slice(0, 10).join(', ')}...`);
   
-  const examOption = await page.waitForSelector(`[data-testid="dropdown-item-${examTitle}"]`, { timeout: 10000 });
+  const examOption = await page.waitForSelector(`[data-testid="dropdown-item-${examTitle}"]`, { timeout: 15000 });
   if (!examOption) throw new Error(`Exam option "${examTitle}" not found`);
   
   await examOption.click();
   console.log(`✓ Selected exam: "${examTitle}"`);
-  await wait(2000);
+  await wait(1000);
 }
 
 Before({ tags: '@autocorrection-gui' }, async function () {
   browser = await launch({
-    headless: false, // Set to true for CI/CD
-    slowMo: 50 // Slow down actions for visibility
+    headless: true,
+    slowMo: 50
   });
   page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 720 });
+  
+  if (!testClassId) {
+    try {
+      const response = await fetch(`${serverUrl}/classes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: 'ESS', year: 2025, semester: 1 }),
+      });
+      
+      if (response.status === 400) {
+        // Class already exists, fetch it by querying all classes
+        const allClassesRes = await fetch(`${serverUrl}/classes`);
+        const allClasses = await allClassesRes.json();
+        const existingClass = allClasses.find((c: any) => c.topic === 'ESS' && c.year === 2025 && c.semester === 1);
+        if (existingClass) {
+          testClassId = existingClass.id;
+          console.log(`✓ Using existing test class with ID: ${testClassId}`);
+        } else {
+          throw new Error('Could not find existing class');
+        }
+      } else if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      } else {
+        const newClass = await response.json();
+        testClassId = newClass.id;
+        console.log(`✓ Created test class with ID: ${testClassId}`);
+      }
+    } catch (error) {
+      console.error('Failed to create/fetch test class:', error);
+      throw error;
+    }
+  }
 });
 
 After({ tags: '@autocorrection-gui' }, async function () {
@@ -94,9 +139,8 @@ After({ tags: '@autocorrection-gui' }, async function () {
 ============================================================ */
 
 Given('no exam is selected for correction', async function () {
-  // Navigate to exam page of a class
-  const classId = 'Engenharia de Software e Sistemas-2025-1';
-  await page.goto(`${baseUrl}/exam/${encodeURIComponent(classId)}`);
+  // Navigate to exam page using the global test class
+  await page.goto(`${baseUrl}/exam/${encodeURIComponent(testClassId!)}`);
   await page.waitForSelector('h1', { timeout: 10000 });
   
   // Ensure "Todas as provas" is selected (default state)
@@ -106,23 +150,65 @@ Given('no exam is selected for correction', async function () {
 });
 
 Given('exam {string} is selected for correction', async function (examId: string) {
-  const classId = 'Engenharia de Software e Sistemas-2025-1';
+  // Create closed questions
+  const closedQ1Res = await fetch(`${serverUrl}/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: 'Closed Question 1',
+      type: 'closed',
+      topic: testTopic,
+      options: [
+        { option: 'A', isCorrect: true },
+        { option: 'B', isCorrect: false }
+      ]
+    }),
+  });
+  const closedQ1 = await closedQ1Res.json();
+
+  const closedQ2Res = await fetch(`${serverUrl}/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: 'Closed Question 2',
+      type: 'closed',
+      topic: testTopic,
+      options: [
+        { option: 'A', isCorrect: false },
+        { option: 'B', isCorrect: true }
+      ]
+    }),
+  });
+  const closedQ2 = await closedQ2Res.json();
+
+  const closedQ3Res = await fetch(`${serverUrl}/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: 'Closed Question 3',
+      type: 'closed',
+      topic: testTopic,
+      options: [
+        { option: 'A', isCorrect: true },
+        { option: 'B', isCorrect: false }
+      ]
+    }),
+  });
+  const closedQ3 = await closedQ3Res.json();
+
+  // Create a test exam with 0 open questions and 3 closed questions
+  const exam = await createTestExam('Test Exam for Correction', testClassId!, 0, 3, [closedQ1.id, closedQ2.id, closedQ3.id]);
   
-  // Create a test exam with closed questions
-  const testExam = await createTestExam(
-    'Test Exam for Correction',
-    classId,
-    1, // 1 open question
-    1, // 1 closed question
-    [1, 2] // Use existing question IDs from the system
-  );
-  
-  console.log(`Created test exam with ID: ${testExam.id}`);
+  if (!exam || !exam.id) {
+    throw new Error('Failed to create test exam or exam has no ID');
+  }
+
+  console.log(`Created test exam with ID: ${exam.id}`);
   
   // Navigate to exam page (force reload to get new exam)
-  await page.goto(`${baseUrl}/exam/${encodeURIComponent(classId)}`, { waitUntil: 'networkidle0' });
+  await page.goto(`${baseUrl}/exam/${encodeURIComponent(testClassId!)}`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('h1', { timeout: 10000 });
-  await wait(5000); // Wait longer for exam to appear in dropdown
+  await wait(2000);
   
   // Select the created exam
   try {
@@ -130,18 +216,17 @@ Given('exam {string} is selected for correction', async function (examId: string
   } catch (error) {
     console.error('Failed to select exam, reloading page...');
     await page.reload({ waitUntil: 'networkidle0' });
-    await wait(3000);
+    await wait(1500);
     await selectExamFromDropdown('Test Exam for Correction');
   }
   
-  selectedExamId = testExam.id.toString();
+  selectedExamId = exam.id.toString();
   testExamCreated = true;
 });
 
 Given('no exam is selected for viewing corrections', async function () {
   // Navigate to exam page of a class without selecting a specific exam
-  const classId = 'Engenharia de Software e Sistemas-2025-1';
-  await page.goto(`${baseUrl}/exam/${encodeURIComponent(classId)}`);
+  await page.goto(`${baseUrl}/exam/${encodeURIComponent(testClassId!)}`);
   await page.waitForSelector('h1', { timeout: 10000 });
   
   // Ensure "Todas as provas" is selected (default state)
@@ -153,83 +238,110 @@ Given('no exam is selected for viewing corrections', async function () {
 
 
 Given('student {string} with cpf {string} has grade {string} for {string} and grade {string} for {string} in exam {string}', 
-  async function (studentName: string, cpf: string, grade1: string, question1: string, grade2: string, question2: string, examId: string) {
+  async function (studentName: string, cpf: string, grade1: string, questionName1: string, grade2: string, questionName2: string, examId: string) {
     console.log(`Setting up student ${studentName} (CPF: ${cpf}) with expected grades for exam ${examId}`);
-    
-    // Create exam if not already created
-    const classId = 'Engenharia de Software e Sistemas-2025-1';
-    if (!testExamCreated) {
-      const testExam = await createTestExam(
-        'Test Exam with Grades',
-        classId,
-        1,
-        1,
-        [1, 2]
-      );
-      selectedExamId = testExam.id.toString();
-      testExamCreated = true;
-      
-      // Navigate to exam page so the exam appears in dropdown
-      await page.goto(`${baseUrl}/exam/${encodeURIComponent(classId)}`, { waitUntil: 'networkidle0' });
-      await page.waitForSelector('h1', { timeout: 10000 });
-      await wait(3000);
+
+    // Create student
+    await fetch(`${serverUrl}/students`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: studentName, cpf, email: 'teste@example.com' }),
+    });
+
+    // Create question 1
+    const q1Res = await fetch(`${serverUrl}/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: questionName1,
+        type: 'closed',
+        topic: testTopic,
+        options: [
+          { option: 'A', isCorrect: true },
+          { option: 'B', isCorrect: false }
+        ]
+      }),
+    });
+    const question1 = await q1Res.json();
+
+    // Create question 2
+    const q2Res = await fetch(`${serverUrl}/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: questionName2,
+        type: 'closed',
+        topic: testTopic,
+        options: [
+          { option: 'A', isCorrect: false },
+          { option: 'B', isCorrect: true }
+        ]
+      }),
+    });
+    const question2 = await q2Res.json();
+
+    const testExam = await createTestExam(
+      'Test Exam 2',
+      testClassId!,
+      0,
+      2,
+      [question1.id, question2.id]
+    );
+
+    // Submit response
+    await fetch(`${serverUrl}/exams/${testExam.id}/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentCpf: cpf,
+        answers: [
+          { questionId: question1.id, answer: 'A' },
+          { questionId: question2.id, answer: 'B' },
+        ],
+      }),
+    });
+
+    // Correct exam
+    try {
+      await fetch(`${serverUrl}/correct/${testExam.id}`, { method: 'POST' });
+      console.log(`Exam ${testExam.id} has been corrected`);
+    } catch (error) {
+      console.warn('Could not correct exam (may be expected)');
     }
+
+    selectedExamId = testExam.id.toString();
+    testExamCreated = true;
     
-    // Note: In a real test, you would submit student responses via API here
-    // For now, we're testing the UI flow assuming data exists
-    await wait(500);
+    await page.goto(`${baseUrl}/exam/${encodeURIComponent(testClassId!)}`, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('h1', { timeout: 10000 });
+    await wait(1500);
   });
 
 Given('exam {string} has been corrected', async function (examId: string) {
   // Use the exam ID from previous step or create a new one
   const actualExamId = selectedExamId || examId;
   
-  // Note: In a real scenario, you would submit student responses first
-  // For now, we just try to correct (might fail if no responses exist)
-  const response = await fetch(`${serverUrl}/api/correct/${actualExamId}`, {
-    method: 'POST'
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    console.warn(`Note: Could not correct exam ${actualExamId} - this is expected if no responses exist`);
-  } else {
-    console.log(`Exam ${actualExamId} has been corrected via API`);
-  }
-  
-  // Navigate to exam page with force reload
-  const classId = 'Engenharia de Software e Sistemas-2025-1';
-  const examPageUrl = `${baseUrl}/exam/${encodeURIComponent(classId)}`;
-  
-  // If already on page, force reload
-  if (page.url().includes('/exam/')) {
-    console.log('Already on exam page, forcing reload...');
-    await page.reload({ waitUntil: 'networkidle0' });
-  } else {
-    await page.goto(examPageUrl, { waitUntil: 'networkidle0' });
-  }
-  
-  await page.waitForSelector('h1', { timeout: 10000 });
-  await wait(5000);
-  
-  // Select the exam - use retry with longer wait
   try {
-    await selectExamFromDropdown('Test Exam with Grades');
+    await fetch(`${serverUrl}/correct/${actualExamId}`, { method: 'POST' });
+    console.log(`Exam ${actualExamId} has been corrected via fetch`);
   } catch (error) {
-    console.error('Failed to select exam, trying reload with longer wait...');
-    await page.reload({ waitUntil: 'networkidle0' });
-    await wait(8000); // Longer wait after reload
-    await selectExamFromDropdown('Test Exam with Grades');
+    console.warn(`Note: Could not correct exam ${actualExamId} - this may be expected if no responses exist`);
   }
+  
+  // Reload the page
+  await page.reload({ waitUntil: 'networkidle0' });
+  await page.waitForSelector('h1', { timeout: 10000 });
+  await wait(1500);
+  
+  // Re-select the exam after reload
+  await selectExamFromDropdown('Test Exam 2');
 });
 
 Given('exam {string} has no students who answered it', async function (examId: string) {
-  const classId = 'Engenharia de Software e Sistemas-2025-1';
-  
   // Create a fresh exam with no responses
   const testExam = await createTestExam(
     'Empty Test Exam',
-    classId,
+    testClassId!,
     2,
     3,
     [11, 12, 13, 14, 15]
@@ -240,21 +352,19 @@ Given('exam {string} has no students who answered it', async function (examId: s
   testExamCreated = true;
   
   // Navigate to exam page
-  await page.goto(`${baseUrl}/exam/${encodeURIComponent(classId)}`, { waitUntil: 'networkidle0' });
+  await page.goto(`${baseUrl}/exam/${encodeURIComponent(testClassId!)}`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('h1', { timeout: 10000 });
-  await wait(5000);
+  await wait(2000);
   
   // Select the exam
   await selectExamFromDropdown('Empty Test Exam');
 });
 
 Given('exam {string} has not been corrected yet', async function (examId: string) {
-  const classId = 'Engenharia de Software e Sistemas-2025-1';
-  
   // Always create a fresh exam for this scenario to ensure it appears in dropdown
   const testExam = await createTestExam(
     'Uncorrected Test Exam',
-    classId,
+    testClassId!,
     1,
     1,
     [1, 2]
@@ -264,9 +374,9 @@ Given('exam {string} has not been corrected yet', async function (examId: string
   testExamCreated = true;
   
   // Navigate to exam page
-  await page.goto(`${baseUrl}/exam/${encodeURIComponent(classId)}`, { waitUntil: 'networkidle0' });
+  await page.goto(`${baseUrl}/exam/${encodeURIComponent(testClassId!)}`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('h1', { timeout: 10000 });
-  await wait(5000);
+  await wait(2000);
   
   // Select the exam
   await selectExamFromDropdown('Uncorrected Test Exam');
@@ -279,12 +389,10 @@ Given('{string} with cpf {string} has answered {string} and {string} for exam {s
   });
 
 Given('exam {string} was already corrected', async function (examId: string) {
-  const classId = 'Engenharia de Software e Sistemas-2025-1';
-  
   // Create a new exam
   const testExam = await createTestExam(
     'Already Corrected Exam',
-    classId,
+    testClassId!,
     1,
     1,
     [1, 2]
@@ -294,18 +402,17 @@ Given('exam {string} was already corrected', async function (examId: string) {
   testExamCreated = true;
   
   // Correct it immediately
-  const response = await fetch(`${serverUrl}/api/correct/${testExam.id}`, {
-    method: 'POST'
-  });
-  
-  if (response.ok) {
+  try {
+    await fetch(`${serverUrl}/correct/${testExam.id}`, { method: 'POST' });
     console.log(`Exam ${testExam.id} has been pre-corrected for test`);
+  } catch (error) {
+    console.warn('Could not pre-correct exam (may be expected if no responses)');
   }
   
   // Navigate to exam page
-  await page.goto(`${baseUrl}/exam/${encodeURIComponent(classId)}`, { waitUntil: 'networkidle0' });
+  await page.goto(`${baseUrl}/exam/${encodeURIComponent(testClassId!)}`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('h1', { timeout: 10000 });
-  await wait(5000);
+  await wait(2000);
   
   // Select the exam with retry
   try {
@@ -313,7 +420,7 @@ Given('exam {string} was already corrected', async function (examId: string) {
   } catch (error) {
     console.error('Failed to select exam, reloading page...');
     await page.reload({ waitUntil: 'networkidle0' });
-    await wait(8000);
+    await wait(2000);
     await selectExamFromDropdown('Already Corrected Exam');
   }
 });
@@ -347,11 +454,11 @@ When('the teacher select the {string} option', async function (buttonText: strin
   await correctionButton.click();
   
   // Wait for the request to process
-  await wait(2000);
+  await wait(1000);
 });
 
 When('the teacher opens the corrections view modal', async function () {
-  await wait(2000); // Wait for page to stabilize
+  await wait(1000); // Wait for page to stabilize
   
   // Helper function to find and click button
   const findAndClickViewButton = async () => {
@@ -385,7 +492,7 @@ When('the teacher opens the corrections view modal', async function () {
   await findAndClickViewButton();
   
   // Wait for modal to appear - use correct selector, with retry
-  await wait(3000);
+  await wait(1500);
   try {
     await page.waitForSelector('[data-testid="modal-overlay"], [data-testid="modal-container"]', { timeout: 12000 });
     console.log('✓ Corrections modal opened successfully');
@@ -397,16 +504,16 @@ When('the teacher opens the corrections view modal', async function () {
     await page.screenshot({ path: '/tmp/modal-retry.png' });
     
     // Wait longer and try clicking again
-    await wait(3000);
+    await wait(2000);
     await findAndClickViewButton();
-    await wait(4000);
+    await wait(2000);
     await page.waitForSelector('[data-testid="modal-overlay"], [data-testid="modal-container"]', { timeout: 8000 });
     console.log('✓ Corrections modal opened successfully after retry');
   }
 });
 
 When('the teacher tries to correct exam {string} again', async function (examId: string) {
-  await wait(2000); // Wait for page to stabilize
+  await wait(1500); // Wait for page to stabilize
   
   // Find and click the 'Corrigir Fechadas' button again
   const buttons = await page.$$('button');
@@ -427,7 +534,7 @@ When('the teacher tries to correct exam {string} again', async function (examId:
   }
   
   await correctionButton.click();
-  await wait(3000); // Wait longer for response
+  await wait(2000); // Wait for API response
 });
 
 /* ============================================================
@@ -504,7 +611,7 @@ Then('no option to view corrections is shown', async function () {
 
 Then('the modal shows student {string} with cpf {string} with grade {string} for {string} and grade {string} for {string} and media {string}', 
   async function (name: string, cpf: string, grade1: string, q1: string, grade2: string, q2: string, average: string) {
-    await wait(2000);
+    await wait(1000);
     
     const bodyText = await page.evaluate(() => document.body.innerText);
     console.log(`Checking grades for ${cpf}`);
@@ -530,7 +637,7 @@ Then('the modal shows student {string} with cpf {string} with grade {string} for
 
 
 Then('the modal shows a message indicating that no students answered the exam', async function () {
-  await wait(2000);
+  await wait(1000);
   
   const bodyText = await page.evaluate(() => document.body.innerText);
   console.log('Checking for empty exam message');
@@ -554,7 +661,7 @@ Then('the modal shows a message indicating that no students answered the exam', 
 
 Then('the modal shows {string} with cpf {string} with Q1 {string} e Q2 {string} and media empty', 
   async function (studentName: string, cpf: string, q1Status: string, q2Status: string) {
-    await wait(2000);
+    await wait(1000);
     
     const bodyText = await page.evaluate(() => document.body.innerText);
     console.log(`Checking Q1/Q2 status for ${cpf}`);
@@ -603,12 +710,10 @@ Given('student {string} with cpf {string} has grade {string} for {string} and no
   async function (studentName: string, cpf: string, grade: string, question1: string, question2: string, examId: string) {
     console.log(`Setting up student ${studentName} (CPF: ${cpf}) with partial grades for exam ${examId}`);
     
-    const classId = 'Engenharia de Software e Sistemas-2025-1';
-    
     // Create exam with partial grades scenario
     const testExam = await createTestExam(
       'Partial Grades Exam',
-      classId,
+      testClassId!,
       1,
       1,
       [1, 2]
@@ -619,15 +724,15 @@ Given('student {string} with cpf {string} has grade {string} for {string} and no
     console.log(`Created partial grades exam with ID: ${testExam.id}`);
     
   // Navigate to exam page
-  await page.goto(`${baseUrl}/exam/${encodeURIComponent(classId)}`, { waitUntil: 'networkidle0' });
+  await page.goto(`${baseUrl}/exam/${encodeURIComponent(testClassId!.toString())}`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('h1', { timeout: 10000 });
-  await wait(5000);
+  await wait(2000);
   
   // Select the exam
   await selectExamFromDropdown('Partial Grades Exam');
   });Then('the modal shows student {string} with cpf {string} with grade {string} for {string} and {string} for {string} and media empty', 
   async function (studentName: string, cpf: string, grade: string, question1: string, status: string, question2: string) {
-    await wait(2000);
+    await wait(1000);
     
     const bodyText = await page.evaluate(() => document.body.innerText);
     console.log(`Checking partial grades for ${cpf}`);

@@ -5,6 +5,7 @@ import { Student } from '../types/Student';
 import ClassService from '../services/ClassService';
 import { studentService } from '../services/StudentService';
 import EnrollmentService from '../services/EnrollmentService';
+import { DEFAULT_ESPECIFICACAO_DO_CALCULO_DE_MEDIA, EspecificacaoDoCalculoDaMedia } from '../types/EspecificacaoDoCalculoDaMedia';
 
 interface ClassesProps {
   classes: Class[];
@@ -25,7 +26,8 @@ const Classes: React.FC<ClassesProps> = ({
   const [formData, setFormData] = useState<CreateClassRequest>({
     topic: '',
     semester: 1,
-    year: new Date().getFullYear()
+    year: new Date().getFullYear(),
+    especificacaoDoCalculoDaMedia: DEFAULT_ESPECIFICACAO_DO_CALCULO_DE_MEDIA
   });
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -159,7 +161,8 @@ const Classes: React.FC<ClassesProps> = ({
       setFormData({
         topic: '',
         semester: 1,
-        year: new Date().getFullYear()
+        year: new Date().getFullYear(),
+        especificacaoDoCalculoDaMedia: DEFAULT_ESPECIFICACAO_DO_CALCULO_DE_MEDIA
       });
     } catch (error) {
       onError((error as Error).message);
@@ -174,7 +177,8 @@ const Classes: React.FC<ClassesProps> = ({
     setFormData({
       topic: classObj.topic,
       semester: classObj.semester,
-      year: classObj.year
+      year: classObj.year,
+      especificacaoDoCalculoDaMedia: classObj.especificacaoDoCalculoDaMedia
     });
   };
 
@@ -184,7 +188,8 @@ const Classes: React.FC<ClassesProps> = ({
     setFormData({
       topic: '',
       semester: 1,
-      year: new Date().getFullYear()
+      year: new Date().getFullYear(),
+      especificacaoDoCalculoDaMedia: DEFAULT_ESPECIFICACAO_DO_CALCULO_DE_MEDIA
     });
   };
 

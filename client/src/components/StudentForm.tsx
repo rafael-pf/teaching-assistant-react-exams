@@ -126,11 +126,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="student-form"
-      data-testid="student-form"
-    >
+    <form onSubmit={handleSubmit} className="student-form" data-testid="student-form">
       <h2>
         {editingStudent ? (
           <>
@@ -213,16 +209,8 @@ const StudentForm: React.FC<StudentFormProps> = ({
       </div>
 
       <div className="form-buttons">
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          data-testid="submit-student-button"
-        >
-          {isSubmitting
-            ? "Saving..."
-            : editingStudent
-            ? "Update Student"
-            : "Add Student"}
+        <button type="submit" disabled={isSubmitting} data-testid="submit-student-button">
+          {isSubmitting ? 'Saving...' : (editingStudent ? 'Update Student' : 'Add Student')}
         </button>
         {onCancel && (
           <button type="button" onClick={onCancel}>

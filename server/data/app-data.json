@@ -168,6 +168,12 @@
           ]
         }
       ]
+    },
+    {
+      "topic": "ESS",
+      "semester": 1,
+      "year": 2025,
+      "enrollments": []
     }
   ]
 }

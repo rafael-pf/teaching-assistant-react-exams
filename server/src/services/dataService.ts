@@ -208,7 +208,12 @@ export const loadDataFromFile = (): void => {
       if (data.classes && Array.isArray(data.classes)) {
         data.classes.forEach((classData: any) => {
           try {
-            const classObj = new Class(classData.topic, classData.semester, classData.year);
+            // Import EspecificacaoDoCalculoDaMedia dynamically to avoid circular dependencies
+            const { EspecificacaoDoCalculoDaMedia, DEFAULT_ESPECIFICACAO_DO_CALCULO_DA_MEDIA } = require('../models/EspecificacaoDoCalculoDaMedia');
+            const especificacao = classData.especificacaoDoCalculoDaMedia 
+              ? EspecificacaoDoCalculoDaMedia.fromJSON(classData.especificacaoDoCalculoDaMedia)
+              : DEFAULT_ESPECIFICACAO_DO_CALCULO_DA_MEDIA;
+            const classObj = new Class(classData.topic, classData.semester, classData.year, especificacao);
             classes.addClass(classObj);
 
             if (classData.enrollments && Array.isArray(classData.enrollments)) {

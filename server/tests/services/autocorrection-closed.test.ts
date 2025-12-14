@@ -371,11 +371,11 @@ describe('Autocorrection Service - Closed Questions', () => {
       const entry1 = result.find((r: any) => r.studentCPF === student1CPF);
       const entry2 = result.find((r: any) => r.studentCPF === student2CPF);
       expect(entry1).toBeDefined();
-      expect(entry1.name).toBe('Vinicius');
-      expect(entry1.answers[0].questionId).toBe(1);
-      expect(entry1.answers[0].grade).toBeNull();
+      expect(entry1!.name).toBe('Vinicius');
+      expect(entry1!.answers[0].questionId).toBe(1);
+      expect(entry1!.answers[0].grade).toBeNull();
       expect(entry2).toBeDefined();
-      expect(entry2.name).toBe('Aluno não registrado');
+      expect(entry2!.name).toBe('Aluno não registrado');
     });
 
     it('returns graded answers when responses contain grades', () => {
